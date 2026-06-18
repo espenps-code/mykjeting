@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Mykje Ting</title>
 <meta name="description" content="Oversikt over læringsmateriellet på skolen, sortert etter fag, med forslag til aktiviteter.">
+<meta name="theme-color" content="#E8A23D">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="apple-touch-icon" href="favicon.svg">
 
 <!-- Skrifter: Bricolage Grotesque (display) + Atkinson Hyperlegible (brødtekst, dyslektikarvennleg) -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -45,7 +48,7 @@
   header.hero{
     position:relative;
     background:#FAFAF2;
-    overflow:hidden;
+    overflow:visible;
     border-bottom:1px solid var(--line);
   }
   .hero-inner{
@@ -65,7 +68,7 @@
   .tagline{color:var(--muted);margin:12px auto 0;max-width:48ch;
     font-size:clamp(15px,2.4vw,18px)}
   .hero-art{max-width:900px;margin:clamp(8px,2vw,18px) auto 0;padding:0 8px;
-    animation:rise .7s ease .05s both}
+    overflow:hidden;animation:rise .7s ease .05s both}
   .hero-art img{
     width:100%;height:auto;display:block;
     -webkit-mask-image:linear-gradient(to right,transparent,#000 7%,#000 93%,transparent);
@@ -75,7 +78,7 @@
 
   /* søkefelt – flyt nedst i headeren, overlappar innhaldet */
   .searchwrap{
-    position:relative;z-index:3;max-width:1120px;margin:0 auto;
+    position:relative;z-index:30;max-width:1120px;margin:0 auto;
     padding:0 22px;transform:translateY(50%);
     pointer-events:none;
   }
@@ -362,6 +365,60 @@
     .etikett{border-color:#999}
     body.printing-detail .overlay{display:none!important}
   }
+
+  /* ---------- OFFENTLEG «LEGG TIL»-KNAPP ---------- */
+  .addbtn{
+    border:1px solid var(--ink);background:var(--ink);color:#fff;
+    border-radius:999px;padding:9px 16px;font-size:14px;font-weight:600;cursor:pointer;
+    display:inline-flex;align-items:center;gap:7px;
+    box-shadow:var(--shadow);transition:.15s;
+  }
+  .addbtn:hover{transform:translateY(-1px);box-shadow:var(--shadow-lg)}
+
+  /* ---------- KODEBOKS (PIN) ---------- */
+  .pin-card{max-width:360px}
+  .pin-card .sheet-body{text-align:center}
+  .pin-ic{
+    width:60px;height:60px;border-radius:50%;margin:6px auto 14px;
+    display:flex;align-items:center;justify-content:center;font-size:28px;
+    background:#F2EFE7;border:1px solid var(--line);
+  }
+  .pin-card p{color:var(--muted);font-size:14.5px;margin:0 auto 18px;max-width:30ch}
+  .pin-input{
+    width:100%;text-align:center;letter-spacing:.5em;font-size:26px;font-weight:700;
+    font-family:inherit;color:var(--ink);
+    border:1.5px solid var(--line);border-radius:14px;background:#FAFAF2;
+    padding:14px 10px;outline:0;box-sizing:border-box;
+  }
+  .pin-input:focus{border-color:var(--c-mat);background:#fff}
+  .pin-input.shake{animation:pinshake .35s}
+  @keyframes pinshake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-7px)}40%,80%{transform:translateX(7px)}}
+  .pin-err{color:var(--c-nor);font-size:13.5px;min-height:18px;margin:10px 0 0}
+  .pin-actions{display:flex;gap:10px;margin-top:18px}
+  .pin-actions .btn{flex:1;justify-content:center}
+
+  /* ---------- AI-FORSLAG ---------- */
+  .ai-box{
+    border:1px dashed #cdbf9e;background:linear-gradient(#FBF7EC,#F7F1E2);
+    border-radius:14px;padding:12px 14px;margin:6px 0 14px;
+  }
+  .ai-box .ai-head{display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px;color:var(--ink)}
+  .ai-box .ai-head .spark{font-size:16px}
+  .ai-box p{color:var(--muted);font-size:13px;margin:6px 0 10px}
+  .ai-btn{
+    border:1px solid var(--c-mat);background:#fff;color:#9a6a1f;
+    border-radius:999px;padding:9px 16px;font-size:14px;font-weight:600;cursor:pointer;
+    display:inline-flex;align-items:center;gap:8px;transition:.15s;
+  }
+  .ai-btn:hover:not(:disabled){background:#FBF1DC}
+  .ai-btn:disabled{opacity:.6;cursor:default}
+  .ai-spin{
+    width:15px;height:15px;border:2px solid #e7d3a8;border-top-color:var(--c-mat);
+    border-radius:50%;display:none;animation:aispin .7s linear infinite;
+  }
+  .ai-btn.loading .ai-spin{display:inline-block}
+  .ai-btn.loading .spark{display:none}
+  @keyframes aispin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
@@ -392,6 +449,10 @@
   <!-- verktøylinje: fag-filter + admin -->
   <div class="toolbar" id="toolbar">
     <div class="chips" id="chips"></div>
+    <button class="addbtn" id="publicAdd" title="Legg til ny ting">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      Legg til ting
+    </button>
     <button class="admin-btn" id="openAdmin" title="Administrer">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.14.31.22.65.22 1Z"/></svg>
       Administrer
@@ -461,6 +522,14 @@
         </div>
       </div>
 
+      <div class="ai-box" id="aiBox">
+        <div class="ai-head"><span class="spark">✨</span> Forslag fra AI</div>
+        <p>Fyll inn navn og fag over, så lager AI tre ferdige aktivitetsforslag du kan justere.</p>
+        <button class="ai-btn" id="aiSuggest" type="button">
+          <span class="ai-spin"></span><span class="spark">✨</span> Lag 3 forslag
+        </button>
+      </div>
+
       <div class="field" style="margin-top:6px">
         <label>Forslag til aktiviteter <span class="hint">– 3 til 6 stykk</span></label>
         <div id="actList"></div>
@@ -509,6 +578,27 @@
   </div>
 </div>
 
+<!-- ===== KODEBOKS (PIN) ===== -->
+<div class="overlay" id="pinOverlay" aria-hidden="true">
+  <div class="sheet pin-card">
+    <div class="sheet-head">
+      <h3 id="pinTitle">Tast inn kode</h3>
+      <button class="xbtn" data-close>×</button>
+    </div>
+    <div class="sheet-body">
+      <div class="pin-ic" id="pinIc">🔑</div>
+      <p id="pinHint">Skriv inn koden for å legge til en ny ting.</p>
+      <input id="pinInput" class="pin-input" type="text" inputmode="numeric"
+             autocomplete="off" maxlength="8" placeholder="••••" aria-label="Kode">
+      <div class="pin-err" id="pinErr"></div>
+      <div class="pin-actions">
+        <button class="btn" data-close type="button">Avbryt</button>
+        <button class="btn primary" id="pinOk" type="button">Bekreft</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <!-- ============ BIBLIOTEK ============ -->
@@ -519,22 +609,27 @@
 <script>
 /* =================================================================
    ▼▼▼  OPPSETT – ENDRE HER  ▼▼▼
-   1) Lim inn Firebase-oppsettet ditt under (samme prosjekt som
-      MykjeKunst går fint – vi bruker en egen samling, se COLLECTION).
-   2) Sett ADMIN_PIN til en kode bare du kjenner (eller "" for av).
-   3) SITE_URL kan stå tom – da lager QR-kodene seg ut fra adressen
+   Se egen fil «OPPSETT-guide.md» for steg-for-steg.
+   1) Lim inn Firebase-oppsettet ditt under (fra Firebase-konsollen).
+   2) ADD_PIN  = koden alle bruker for å LEGGE TIL ting (nå 2008).
+      ADMIN_PIN = privat kode bare du kjenner – for å REDIGERE/SLETTE.
+   3) GEMINI_KEY = nøkkel for AI-forslag (la stå tom om du ikke bruker AI).
+   4) SITE_URL kan stå tom – da lager QR-kodene seg ut fra adressen
       siden ligger på. Sett den bare om du vil tvinge en bestemt adresse.
    ================================================================= */
 const firebaseConfig = {
-  apiKey: "DIN_API_KEY",
-  authDomain: "DITT-PROSJEKT.firebaseapp.com",
-  projectId: "DITT-PROSJEKT",
-  storageBucket: "DITT-PROSJEKT.appspot.com",
-  messagingSenderId: "000000000000",
-  appId: "1:000000000000:web:xxxxxxxxxxxx"
+  apiKey: "AIzaSyAiq67mOhFCmtnol2UkrakYNK_RtTa-rjc",
+  authDomain: "mykje-ting.firebaseapp.com",
+  projectId: "mykje-ting",
+  storageBucket: "mykje-ting.firebasestorage.app",
+  messagingSenderId: "884763993033",
+  appId: "1:884763993033:web:b7d1ac0d56471202643e18"
 };
 const COLLECTION = "mykjeting";
-const ADMIN_PIN  = "2468";        // <-- endre denne
+const ADD_PIN    = "2008";        // alle kan legge til med denne
+const ADMIN_PIN  = "2468";        // <-- PRIVAT: endre denne. For redigering/sletting
+const GEMINI_KEY = "";            // <-- AI-forslag. Lim inn Gemini-nøkkel, eller la stå tom
+const GEMINI_MODEL = "gemini-2.5-flash-lite";  // gratis-modell
 const SITE_URL   = "";            // f.eks. "https://espenps-code.github.io/mykjeting/"
 /* ▲▲▲  SLUTT OPPSETT  ▲▲▲ */
 
@@ -553,79 +648,12 @@ function fargeFor(fag){
 }
 
 /* ---------- demodata (vises til Firebase er koblet på) ---------- */
-const DEMO = [
- {id:"d1",navn:"Tangram-sett",ikon:"🧩",fag:["Matematikk","Kunst og håndverk"],
-  plassering:"Materiellrom · hylle B2",tal:"8 sett",
-  skildring:"Sju geometriske brikker som kan legges til figurer. Klassiker for geometri og problemløsning.",
-  aktivitetar:[
-    {tittel:"Lag dyret",skildring:"Vis en silhuett på tavla. Elevene bygger den med alle sju brikkene.",trinn:"1.–4.",tid:"20 min"},
-    {tittel:"Hvor mange kvadrat?",skildring:"Bruk brikkene til å dekke et større kvadrat. Snakk om areal og brøk.",trinn:"3.–5.",tid:"25 min"},
-    {tittel:"Forklar for makker",skildring:"En bygger en figur bak en skjerm og forklarer med ord. Makker prøver å kopiere.",trinn:"Alle",tid:"15 min"},
-    {tittel:"Vinkeljakt",skildring:"Finn rette, spisse og stumpe vinkler i brikkene. Tegn og navngi.",trinn:"5.–7.",tid:"20 min"}
-  ]},
- {id:"d2",navn:"Lupe og innsamlingsbokser",ikon:"🔍",fag:["Naturfag"],
-  plassering:"Naturfagskap · øverste hylle",tal:"15 luper",
-  skildring:"Håndluper og små bokser for å fange og studere småkryp ute.",
-  aktivitetar:[
-    {tittel:"Småkrypsafari",skildring:"Ut i skolegården. Finn, tegn og navngi fem småkryp. Slipp dem fri etterpå.",trinn:"1.–4.",tid:"40 min"},
-    {tittel:"Næringskjede",skildring:"Samle inn og sorter etter hvem som spiser hva. Lag en kjede på tavla.",trinn:"4.–6.",tid:"45 min"},
-    {tittel:"Tell og sammenlign",skildring:"Tell småkryp i sol mot skygge. Lag søylediagram av funnene.",trinn:"3.–6.",tid:"45 min"}
-  ]},
- {id:"d3",navn:"Bokstavkort A–Å",ikon:"🔤",fag:["Norsk"],
-  plassering:"Norskhylle · skuff 1",tal:"4 sett",
-  skildring:"Store laminerte bokstavkort til lydering, staving og ordlek.",
-  aktivitetar:[
-    {tittel:"Bygg ordet",skildring:"Læreren sier et ord. Elevene legger det med kort, lyd for lyd.",trinn:"1.–3.",tid:"15 min"},
-    {tittel:"Lengste ord",skildring:"Grupper får tilfeldige bokstaver og lager det lengste ordet de klarer.",trinn:"2.–4.",tid:"20 min"},
-    {tittel:"Stum bokstav-jakt",skildring:"Finn ord med stumme bokstaver. Marker dem med et rødt kort.",trinn:"4.–6.",tid:"20 min"},
-    {tittel:"Alfabetstafett",skildring:"Legg alfabetet i rekkefølge på tid, sammen.",trinn:"1.–4.",tid:"10 min"}
-  ]},
- {id:"d4",navn:"Rytmeinstrument-kasse",ikon:"🥁",fag:["Musikk"],
-  plassering:"Musikkrom · gulvkasse",tal:"1 kasse",
-  skildring:"Trommer, claves, maracas, tamburin og bjeller til rytme og samspill.",
-  aktivitetar:[
-    {tittel:"Ekko-rytmen",skildring:"Læreren spiller en rytme, klassen svarer med samme rytme.",trinn:"Alle",tid:"15 min"},
-    {tittel:"Lag et lydbilde",skildring:"Grupper lager lydene i en storm eller en skog. Fremfør for hverandre.",trinn:"3.–7.",tid:"35 min"},
-    {tittel:"Puls mot rytme",skildring:"Halve klassen holder jevn puls, andre halvdel legger rytme oppå.",trinn:"4.–7.",tid:"20 min"}
-  ]},
- {id:"d5",navn:"Målebånd og linjaler",ikon:"📏",fag:["Matematikk"],
-  plassering:"Materiellrom · skuff M1",tal:"20 stk",
-  skildring:"Rullemålebånd og linjaler for lengde, omkrets og praktisk måling.",
-  aktivitetar:[
-    {tittel:"Mål klasserommet",skildring:"Mål lengde og bredde, regn ut areal og omkrets.",trinn:"4.–7.",tid:"30 min"},
-    {tittel:"Mitt eget steg",skildring:"Mål hvor langt et steg er, og estimer avstander uten å måle.",trinn:"3.–5.",tid:"25 min"},
-    {tittel:"Cm, m og km",skildring:"Sorter ting etter riktig måleredskap og enhet.",trinn:"2.–4.",tid:"20 min"}
-  ]},
- {id:"d6",navn:"Hoppetau (lange og korte)",ikon:"🪢",fag:["Kroppsøving"],
-  plassering:"Gymsal · utstyrsbod",tal:"12 korte · 4 lange",
-  skildring:"Tau for kondisjon, koordinasjon og samarbeidslek.",
-  aktivitetar:[
-    {tittel:"Inn og ut",skildring:"To svinger det lange tauet, resten hopper inn og ut etter tur.",trinn:"Alle",tid:"15 min"},
-    {tittel:"Pulstrapp",skildring:"30 sek hopping, 30 sek pause, fem runder. Kjenn på pulsen.",trinn:"4.–7.",tid:"15 min"},
-    {tittel:"Rim og hopp",skildring:"Hopp i takt med et regle. Lag egne regler.",trinn:"1.–4.",tid:"15 min"}
-  ]},
- {id:"d7",navn:"Akvarell og pensler",ikon:"🎨",fag:["Kunst og håndverk"],
-  plassering:"Formingsrom · skap 3",tal:"klassesett",
-  skildring:"Akvarellblokker, pensler og paletter til vått-i-vått og fargelære.",
-  aktivitetar:[
-    {tittel:"Fargesirkelen",skildring:"Bland fram sekundærfarger fra de tre primærfargene.",trinn:"3.–7.",tid:"40 min"},
-    {tittel:"Vått-i-vått himmel",skildring:"Mal en soloppgang ved å la fargene flyte i hverandre.",trinn:"Alle",tid:"45 min"},
-    {tittel:"Kald og varm",skildring:"Del arket i to og mal samme motiv i kalde og varme farger.",trinn:"4.–7.",tid:"45 min"}
-  ]},
- {id:"d8",navn:"Globus og verdenskart",ikon:"🌍",fag:["Samfunnsfag","Naturfag"],
-  plassering:"Materiellrom · hylle A1",tal:"3 globuser",
-  skildring:"Globuser og laminerte verdenskart for geografi, klimasoner og reise.",
-  aktivitetar:[
-    {tittel:"Reisen min",skildring:"Merk av steder du eller familien kommer fra. Mål avstander.",trinn:"3.–6.",tid:"30 min"},
-    {tittel:"Klimasoner",skildring:"Finn ekvator og polene. Snakk om hvorfor det er varmt og kaldt.",trinn:"4.–7.",tid:"35 min"},
-    {tittel:"Gjett landet",skildring:"Gi tre hint om et land, makker finner det på kartet.",trinn:"4.–7.",tid:"20 min"}
-  ]}
-];
+const DEMO = [];   // tomt – siden starter blank. Ting kommer fra Firebase.
 
 /* =================================================================
    STATE + DATABASE
    ================================================================= */
-let db=null, demoMode=false, isAdmin=false;
+let db=null, demoMode=false, isAdmin=false, canAdd=false;
 let items=[];            // alle ting
 let activeFag="*";       // valgt fag-filter
 let query="";            // søk
@@ -735,7 +763,7 @@ function render(){
 
   if(items.length===0){
     root.innerHTML=`<div class="empty"><div class="big">📦</div>
-      <strong>Ingen ting ennå.</strong><br>Åpne «Administrer» og legg til det første materiellet.</div>`;
+      <strong>Ingen ting ennå.</strong><br>Trykk «+ Legg til ting» og legg inn det første materiellet.</div>`;
     return;
   }
   if(list.length===0){
@@ -873,17 +901,66 @@ function buildLabels(){
 /* =================================================================
    ADMIN
    ================================================================= */
+/* ----- stylet kodeboks (erstatter prompt) ----- */
+let pinValidator=null;
+function askCode({title,hint,icon,onValid}){
+  $("#pinTitle").textContent=title;
+  $("#pinHint").textContent=hint;
+  $("#pinIc").textContent=icon||"🔑";
+  const inp=$("#pinInput"); inp.value=""; $("#pinErr").textContent="";
+  pinValidator=onValid;
+  openOverlay("pinOverlay");
+  setTimeout(()=>inp.focus(),60);
+}
+function submitPin(){
+  const inp=$("#pinInput"); const code=inp.value.trim();
+  if(pinValidator && pinValidator(code)){
+    pinValidator=null;
+    closeOverlay($("#pinOverlay"));
+  }else{
+    $("#pinErr").textContent="Feil kode. Prøv igjen.";
+    inp.classList.remove("shake"); void inp.offsetWidth; inp.classList.add("shake");
+    inp.select();
+  }
+}
+
+/* «Legg til ting» – alle med ADD_PIN (eller admin) */
+function requestAdd(){
+  if(isAdmin||canAdd){openForm(null);return}
+  askCode({
+    title:"Legg til ting", icon:"➕",
+    hint:`Skriv inn koden for å legge til en ny ting.`,
+    onValid:code=>{
+      if(code===ADD_PIN||(ADMIN_PIN&&code===ADMIN_PIN)){
+        canAdd=true;
+        if(ADMIN_PIN&&code===ADMIN_PIN)isAdmin=true;
+        openForm(null);
+        return true;
+      }
+      return false;
+    }
+  });
+}
+
+/* «Administrer» – krev privat admin-kode (rediger/slett/QR) */
 function enterAdmin(){
   if(isAdmin){openAdmin();return}
-  if(ADMIN_PIN){
-    const p=prompt("Tast inn administrator-koden:");
-    if(p!==ADMIN_PIN){if(p!==null)toast("Feil kode");return}
-  }
-  isAdmin=true;
-  openAdmin();
-  if(document.body.classList.contains("view-detail")){
-    openDetail(new URLSearchParams(location.search).get("ting"),false);
-  }
+  if(!ADMIN_PIN){isAdmin=true;canAdd=true;openAdmin();return}
+  askCode({
+    title:"Administrer", icon:"🔐",
+    hint:"Skriv inn den private admin-koden for å redigere og slette.",
+    onValid:code=>{
+      if(code===ADMIN_PIN){
+        isAdmin=true; canAdd=true;
+        openAdmin();
+        if(document.body.classList.contains("view-detail")){
+          openDetail(new URLSearchParams(location.search).get("ting"),false);
+        }
+        return true;
+      }
+      return false;
+    }
+  });
 }
 function openAdmin(){
   const root=$("#adminList");
@@ -943,6 +1020,7 @@ function openForm(id){
   const al=$("#actList");al.innerHTML="";
   (it?.aktivitetar||[{}]).forEach(a=>al.appendChild(actRow(a)));
   $("#deleteThing").style.display=it?"inline-flex":"none";
+  syncAiBox();
   openOverlay("formOverlay");
 }
 function readForm(){
@@ -975,10 +1053,69 @@ $$(".overlay").forEach(o=>{
 document.addEventListener("keydown",e=>{if(e.key==="Escape")$$(".overlay.open").forEach(closeOverlay)});
 
 $("#openAdmin").onclick=enterAdmin;
+$("#publicAdd").onclick=requestAdd;
 $("#addThing").onclick=()=>openForm(null);
 $("#addAct").onclick=()=>$("#actList").appendChild(actRow());
 $("#printLabels").onclick=()=>{buildLabels();openOverlay("etikettOverlay")};
 $("#doPrint").onclick=()=>{document.body.classList.add("printing-labels");window.print();setTimeout(()=>document.body.classList.remove("printing-labels"),500)};
+
+/* kodeboks */
+$("#pinOk").onclick=submitPin;
+$("#pinInput").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();submitPin()}});
+
+/* =================================================================
+   AI-FORSLAG (Google Gemini)
+   ================================================================= */
+$("#aiSuggest").onclick=aiSuggest;
+function syncAiBox(){ $("#aiBox").style.display = GEMINI_KEY ? "block" : "none"; }
+async function aiSuggest(){
+  const navn=$("#f_navn").value.trim();
+  const fag=$$("#f_fagpick [data-fag]").filter(b=>b.getAttribute("aria-pressed")==="true").map(b=>b.dataset.fag);
+  const skildring=$("#f_skildring").value.trim();
+  if(!navn){toast("Skriv inn navn på tingen først");$("#f_navn").focus();return}
+  if(!GEMINI_KEY){toast("Mangler Gemini-nøkkel – se OPPSETT-guide.md");return}
+
+  const btn=$("#aiSuggest"); btn.classList.add("loading"); btn.disabled=true;
+  const prompt=`Du er lærer på norsk barneskole (1.–7. trinn). Foreslå nøyaktig 3 konkrete, praktiske klasseromsaktiviteter for læringsmateriellet under.
+Materiell: "${navn}"${fag.length?` (fag: ${fag.join(", ")})`:""}.${skildring?` Beskrivelse: ${skildring}.`:""}
+Svar KUN med gyldig JSON, et array med 3 objekt, hvert med feltene:
+"tittel" (kort), "skildring" (1–2 setninger, praktisk og konkret), "trinn" (f.eks. "3.–5." eller "Alle"), "tid" (f.eks. "20 min").
+Bruk norsk (bokmål/nynorsk er greit). Ikke skriv noe annet enn JSON-arrayet.`;
+
+  try{
+    const url=`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(GEMINI_KEY)}`;
+    const res=await fetch(url,{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        contents:[{parts:[{text:prompt}]}],
+        generationConfig:{temperature:0.9,responseMimeType:"application/json"}
+      })
+    });
+    if(!res.ok){throw new Error("HTTP "+res.status)}
+    const data=await res.json();
+    let txt=data?.candidates?.[0]?.content?.parts?.[0]?.text||"";
+    txt=txt.replace(/^```json\s*/i,"").replace(/```$/,"").trim();
+    let arr=JSON.parse(txt);
+    if(!Array.isArray(arr))arr=arr.aktiviteter||arr.activities||[];
+    arr=arr.slice(0,3);
+    if(!arr.length)throw new Error("Tomt svar");
+
+    // fjern tomme rader, legg til forslagene
+    $$("#actList .act-edit").forEach(d=>{
+      if(!d.querySelector(".a_tittel").value.trim() && !d.querySelector(".a_skildring").value.trim()) d.remove();
+    });
+    arr.forEach(a=>$("#actList").appendChild(actRow({
+      tittel:a.tittel||a.title||"", skildring:a.skildring||a.beskrivelse||a.description||"",
+      trinn:a.trinn||a.trinnnivå||a.grade||"", tid:a.tid||a.time||a.varighet||""
+    })));
+    toast("La til 3 AI-forslag – juster gjerne teksten");
+  }catch(e){
+    console.error(e);
+    toast("Klarte ikke å hente AI-forslag. Prøv igjen.");
+  }finally{
+    btn.classList.remove("loading"); btn.disabled=false;
+  }
+}
 
 $("#saveThing").onclick=async()=>{
   const data=readForm();
