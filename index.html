@@ -603,7 +603,7 @@
 
       <div class="ai-box" id="aiBox">
         <div class="ai-head"><span class="spark">✨</span> Forslag fra AI</div>
-        <p>Tre aktivitetsforslag lages automatisk når du har skrevet navnet. Du kan justere dem fritt – eller lage nye forslag her.</p>
+        <p>Når du har skrevet navnet, fyller AI automatisk inn beskrivelse, tema og tre aktivitetsforslag. Du kan justere alt fritt – eller lage nytt her.</p>
         <button class="ai-btn" id="aiSuggest" type="button">
           <span class="ai-spin"></span><span class="spark">✨</span> Lag forslag på nytt
         </button>
@@ -1213,16 +1213,18 @@ async function aiSuggest(){
   if(!window.aiKlar){toast("AI er ikke klar – sjekk at AI Logic er skrudd på i Firebase (se OPPSETT-guide.md)");return}
 
   const btn=$("#aiSuggest"); btn.classList.add("loading"); btn.disabled=true;
-  const prompt=`Du er lærer på norsk barneskole (1.–7. trinn). For læringsmateriellet under skal du lage to ting.
-Materiell: "${navn}"${fag.length?` (fag: ${fag.join(", ")})`:""}.${skildring?` Beskrivelse: ${skildring}.`:""}
+  const prompt=`Du er lærer på norsk barneskole (1.–7. trinn). For læringsmateriellet under skal du lage tre ting.
+Materiell: "${navn}"${fag.length?` (fag: ${fag.join(", ")})`:""}.${skildring?` Beskrivelse frå før: ${skildring}.`:""}
 Svar KUN med gyldig JSON med nøyaktig denne forma:
 {
+  "beskrivelse": "...",
   "tema": ["...", "..."],
   "aktiviteter": [ {"tittel":"...","skildring":"...","trinn":"...","tid":"..."} ]
 }
-"tema": 6–10 korte søkeord/emner (1–2 ord hver) som beskriver hva tingen kan brukes til – det en lærer ville søkt på (f.eks. "telling", "plassverdi", "brøk"). Bruk grunnform.
-"aktiviteter": nøyaktig 3 konkrete, praktiske klasseromsaktiviteter. "tittel" kort, "skildring" 1–2 setninger praktisk og konkret, "trinn" f.eks. "3.–5." eller "Alle", "tid" f.eks. "20 min".
-Bruk norsk. Ikke skriv noe annet enn JSON-objektet.`;
+"beskrivelse": 1–2 setningar som forklarer kva tingen er og kva den brukast til i undervisning. Er det eit kjent spel eller produkt, beskriv det kort og nøytralt. IKKJE dikt opp detaljar (som reglar eller talverdiar) du er usikker på – hald deg generell då.
+"tema": 6–10 korte søkeord/emner (1–2 ord kvar) som beskriv kva tingen kan brukast til – det ein lærar ville søkt på (f.eks. "telling", "plassverdi", "brøk"). Bruk grunnform.
+"aktiviteter": nøyaktig 3 konkrete, praktiske klasseromsaktivitetar. "tittel" kort, "skildring" 1–2 setningar praktisk og konkret, "trinn" f.eks. "3.–5." eller "Alle", "tid" f.eks. "20 min".
+Bruk norsk. Ikkje skriv noko anna enn JSON-objektet.`;
 
   try{
     let txt=await window.aiGenererForslag(prompt);
@@ -1230,8 +1232,14 @@ Bruk norsk. Ikke skriv noe annet enn JSON-objektet.`;
     const data=JSON.parse(txt);
     let arr = Array.isArray(data) ? data : (data.aktiviteter||data.activities||[]);
     const tema = (!Array.isArray(data) && Array.isArray(data.tema)) ? data.tema : [];
+    const beskrivelse = (!Array.isArray(data) && typeof data.beskrivelse==="string") ? data.beskrivelse.trim() : "";
     arr=arr.slice(0,3);
     if(!arr.length)throw new Error("Tomt svar");
+
+    // beskrivelse – fyll inn berre om feltet er tomt (ikkje overskriv det læraren har skrive)
+    if(beskrivelse && !$("#f_skildring").value.trim()){
+      $("#f_skildring").value=beskrivelse;
+    }
 
     // tema – slå saman med det som alt står (utan duplikat)
     if(tema.length){
@@ -1249,7 +1257,7 @@ Bruk norsk. Ikke skriv noe annet enn JSON-objektet.`;
       tittel:a.tittel||a.title||"", skildring:a.skildring||a.beskrivelse||a.description||"",
       trinn:a.trinn||a.trinnnivå||a.grade||"", tid:a.tid||a.time||a.varighet||""
     })));
-    toast("La til AI-forslag og tema – juster gjerne");
+    toast("La til beskrivelse, tema og forslag – juster gjerne");
   }catch(e){
     console.error(e);
     toast("Klarte ikke å hente AI-forslag. Prøv igjen.");
