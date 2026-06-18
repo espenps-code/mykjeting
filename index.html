@@ -177,10 +177,19 @@
     background:var(--ink);color:#fff;border-radius:999px;
     font-size:12px;font-weight:700;padding:5px 10px;
   }
-  .card .photo{width:100%;aspect-ratio:16/10;object-fit:cover;display:block;background:#F2EFE7}
-  .card.has-photo .ikon{display:none}
-  .detail-photo{width:100%;max-height:340px;object-fit:cover;display:block;
-    border-radius:var(--r);border:1px solid var(--line);margin:0 0 18px}
+  .card .photo{width:100%;aspect-ratio:4/3;object-fit:cover;display:block;background:#F2EFE7}
+  /* fag-ikon som bilete i tile (i staden for emoji-boks) */
+  .ikon.bilde{background:#FBFAF5;padding:6px}
+  .ikon.bilde img{width:100%;height:100%;object-fit:contain;display:block}
+  /* detalj: bilete og info ved sida av kvarandre */
+  .detail-top{display:flex;gap:22px;align-items:flex-start;margin-bottom:8px}
+  .detail-top .detail-head{flex:1 1 0;min-width:0;margin:0}
+  .detail-photo{flex:0 0 44%;width:44%;aspect-ratio:4/3;object-fit:cover;display:block;
+    border-radius:var(--r);border:1px solid var(--line);margin:0}
+  @media(max-width:720px){
+    .detail-top{flex-direction:column}
+    .detail-photo{flex:auto;width:100%}
+  }
 
   /* bildefelt i skjema */
   .imgfield{display:flex;gap:14px;align-items:center}
@@ -430,9 +439,42 @@
   .ai-btn.loading .ai-spin{display:inline-block}
   .ai-btn.loading .spark{display:none}
   @keyframes aispin{to{transform:rotate(360deg)}}
+
+  /* ---------- 3D SPINNANDE FAG-BAKGRUNN ---------- */
+  header.hero{position:relative;z-index:2}   /* over verktøylinja, så søkefeltet vises heilt */
+  main, footer{position:relative;z-index:1}
+  .bg-fag{
+    position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;
+    perspective:900px;
+  }
+  .bg-fag span{
+    position:absolute;display:block;opacity:.10;
+    transform-style:preserve-3d;will-change:transform;
+    filter:saturate(.9);
+  }
+  .bg-fag span img{width:100%;height:100%;display:block}
+  @keyframes fagspin{from{transform:rotateY(0deg)}to{transform:rotateY(360deg)}}
+  @media (prefers-reduced-motion: reduce){ .bg-fag span{animation:none!important} }
+
+  /* tema – «brukes til»-merkelappar */
+  .temarad{display:flex;flex-wrap:wrap;gap:7px;margin:2px 0 16px}
+  .tematag{font-size:12.5px;padding:4px 10px;border-radius:999px;
+    background:#EFEADB;color:var(--muted);border:1px solid var(--line)}
+  .temahead{font-size:13px;color:var(--muted);font-weight:700;margin:6px 0 8px;
+    text-transform:uppercase;letter-spacing:.04em}
 </style>
 </head>
 <body>
+
+<!-- subtil 3D-spinnande fag-bakgrunn -->
+<div class="bg-fag" aria-hidden="true">
+  <span style="top:7%;left:3%;width:118px;height:118px;animation:fagspin 17s linear infinite"><img src="fagikoner/ikon-math.webp" alt=""></span>
+  <span style="top:60%;left:7%;width:92px;height:92px;animation:fagspin 23s linear infinite .5s"><img src="fagikoner/ikon-book.webp" alt=""></span>
+  <span style="top:21%;left:85%;width:108px;height:108px;animation:fagspin 19s linear infinite"><img src="fagikoner/ikon-nature.webp" alt=""></span>
+  <span style="top:70%;left:82%;width:128px;height:128px;animation:fagspin 26s linear infinite .9s"><img src="fagikoner/ikon-art.webp" alt=""></span>
+  <span style="top:40%;left:47%;width:78px;height:78px;animation:fagspin 29s linear infinite"><img src="fagikoner/ikon-music.webp" alt=""></span>
+  <span style="top:87%;left:38%;width:96px;height:96px;animation:fagspin 21s linear infinite .7s"><img src="fagikoner/ikon-gym.webp" alt=""></span>
+</div>
 
 <div class="banner" id="demoBanner" style="display:none">
   <b>Demomodus.</b> Endringer blir ikke lagret. Legg inn Firebase-oppsettet ditt øverst i filen for å bruke databasen.
@@ -550,6 +592,12 @@
         <button class="ai-btn" id="aiSuggest" type="button">
           <span class="ai-spin"></span><span class="spark">✨</span> Lag forslag på nytt
         </button>
+      </div>
+
+      <div class="field">
+        <label>Tema / søkeord <span class="hint">– så lærere finner tingen i søk</span></label>
+        <input id="f_tema" placeholder="f.eks. telling, plassverdi, multiplikasjon">
+        <div class="hint" style="margin-top:5px">Skill med komma. AI fyller dette inn automatisk – endre fritt.</div>
       </div>
 
       <div class="field" style="margin-top:6px">
@@ -671,6 +719,25 @@ function fargeFor(fag){
   return PALETTE[h%PALETTE.length];
 }
 
+/* ---------- fag-ikon (bilete i mappa «fagikoner») ---------- */
+const FAGIKON = {
+  "Matematikk":"ikon-math","Norsk":"ikon-book","Naturfag":"ikon-nature",
+  "Kunst og håndverk":"ikon-art","Kroppsøving":"ikon-gym","Musikk":"ikon-music",
+  "Engelsk":"ikon-engelsk","Samfunnsfag":"ikon-samfunn","KRLE":"ikon-krle",
+  "Mat og helse":"ikon-mathelse","Svømming":"ikon-svomming","Valgfag":"ikon-valgfag",
+  "Sosial":"ikon-sosial","Digital":"ikon-digital"
+};
+function ikonFor(it){
+  const f=(it.fag||[])[0];
+  return FAGIKON[f] ? `fagikoner/${FAGIKON[f]}.webp` : null;
+}
+/* lagar innhaldet i ikon-tile: fag-bilete om mogleg, elles emoji */
+function ikonTile(it, klasse){
+  const url=ikonFor(it);
+  if(url) return `<div class="ikon bilde ${klasse||''}"><img src="${url}" alt=""></div>`;
+  return `<div class="ikon ${klasse||''}">${esc(it.ikon||"📦")}</div>`;
+}
+
 /* ---------- demodata (vises til Firebase er koblet på) ---------- */
 const DEMO = [];   // tomt – siden starter blank. Ting kommer fra Firebase.
 
@@ -749,6 +816,7 @@ function matches(it){
   if(activeFag!=="*" && !(it.fag||[]).includes(activeFag)) return false;
   if(!query) return true;
   const hayTekst=[it.navn,it.skildring,(it.fag||[]).join(" "),it.plassering,
+    (it.tema||[]).join(" "),
     ...(it.aktivitetar||[]).flatMap(a=>[a.tittel,a.skildring])].join(" ").toLowerCase();
   const hayStammer=ordliste(hayTekst).map(stemW);
   const qOrd=ordliste(query);
@@ -786,7 +854,7 @@ function cardHTML(it){
     ${it.bilde?`<img class="photo" src="${esc(it.bilde)}" alt="" loading="lazy">`:''}
     ${n?`<span class="pill">${n} ${n===1?'aktivitet':'aktiviteter'}</span>`:''}
     <div class="body">
-      <div class="ikon">${esc(it.ikon||"📦")}</div>
+      ${ikonTile(it)}
       <h3>${esc(it.navn)}</h3>
       ${it.skildring?`<p class="desc">${esc(it.skildring)}</p>`:''}
       <div class="meta">
@@ -854,19 +922,23 @@ function openDetail(id,push=true){
   const acts=(it.aktivitetar||[]);
   $("#detail").innerHTML=`
     <button class="backlink" id="back">← Tilbake til oversikten</button>
-    ${it.bilde?`<img class="detail-photo" src="${esc(it.bilde)}" alt="${esc(it.navn)}">`:''}
-    <div class="detail-head" style="--cc:${c}">
-      <div class="ikon">${esc(it.ikon||"📦")}</div>
-      <div class="info">
-        <h2>${esc(it.navn)}</h2>
-        ${it.skildring?`<p>${esc(it.skildring)}</p>`:''}
-        <div class="tags">
-          ${(it.fag||[]).map(f=>`<span class="tag" style="--gc:${fargeFor(f)}">${esc(f)}</span>`).join('')}
-          ${it.plassering?`<span class="tag neutral">📍 ${esc(it.plassering)}</span>`:''}
-          ${it.tal?`<span class="tag neutral">📦 ${esc(it.tal)}</span>`:''}
+    <div class="detail-top${it.bilde?' has-photo':''}">
+      ${it.bilde?`<img class="detail-photo" src="${esc(it.bilde)}" alt="${esc(it.navn)}">`:''}
+      <div class="detail-head" style="--cc:${c}">
+        ${ikonTile(it)}
+        <div class="info">
+          <h2>${esc(it.navn)}</h2>
+          ${it.skildring?`<p>${esc(it.skildring)}</p>`:''}
+          <div class="tags">
+            ${(it.fag||[]).map(f=>`<span class="tag" style="--gc:${fargeFor(f)}">${esc(f)}</span>`).join('')}
+            ${it.plassering?`<span class="tag neutral">📍 ${esc(it.plassering)}</span>`:''}
+            ${it.tal?`<span class="tag neutral">📦 ${esc(it.tal)}</span>`:''}
+          </div>
         </div>
       </div>
     </div>
+    ${(it.tema&&it.tema.length)?`<div class="temahead">Brukes til</div>
+      <div class="temarad">${it.tema.map(t=>`<span class="tematag">${esc(t)}</span>`).join('')}</div>`:''}
     <h3 class="acts-head">Forslag til aktiviteter</h3>
     ${acts.length?`<div class="acts">${acts.map((a,i)=>`
       <div class="act" style="--cc:${c}">
@@ -1059,6 +1131,7 @@ function openForm(id){
   $("#f_skildring").value=it?.skildring||"";
   $("#f_plassering").value=it?.plassering||"";
   $("#f_tal").value=it?.tal||"";
+  $("#f_tema").value=(it?.tema||[]).join(", ");
   fagPicker(it?.fag||[]);
   const al=$("#actList");al.innerHTML="";
   (it?.aktivitetar||[{}]).forEach(a=>al.appendChild(actRow(a)));
@@ -1077,11 +1150,12 @@ function readForm(){
     trinn:d.querySelector(".a_trinn").value.trim(),
     tid:d.querySelector(".a_tid").value.trim()
   })).filter(a=>a.tittel);
+  const tema=$("#f_tema").value.split(",").map(t=>t.trim()).filter(Boolean);
   return {
     navn:$("#f_navn").value.trim(),
     ikon:$("#f_ikon").value.trim()||"📦",
     bilde:formBilde||"",
-    fag, aktivitetar,
+    fag, aktivitetar, tema,
     skildring:$("#f_skildring").value.trim(),
     plassering:$("#f_plassering").value.trim(),
     tal:$("#f_tal").value.trim()
@@ -1123,19 +1197,33 @@ async function aiSuggest(){
   if(!window.aiKlar){toast("AI er ikke klar – sjekk at AI Logic er skrudd på i Firebase (se OPPSETT-guide.md)");return}
 
   const btn=$("#aiSuggest"); btn.classList.add("loading"); btn.disabled=true;
-  const prompt=`Du er lærer på norsk barneskole (1.–7. trinn). Foreslå nøyaktig 3 konkrete, praktiske klasseromsaktiviteter for læringsmateriellet under.
+  const prompt=`Du er lærer på norsk barneskole (1.–7. trinn). For læringsmateriellet under skal du lage to ting.
 Materiell: "${navn}"${fag.length?` (fag: ${fag.join(", ")})`:""}.${skildring?` Beskrivelse: ${skildring}.`:""}
-Svar KUN med gyldig JSON, et array med 3 objekt, hvert med feltene:
-"tittel" (kort), "skildring" (1–2 setninger, praktisk og konkret), "trinn" (f.eks. "3.–5." eller "Alle"), "tid" (f.eks. "20 min").
-Bruk norsk (bokmål/nynorsk er greit). Ikke skriv noe annet enn JSON-arrayet.`;
+Svar KUN med gyldig JSON med nøyaktig denne forma:
+{
+  "tema": ["...", "..."],
+  "aktiviteter": [ {"tittel":"...","skildring":"...","trinn":"...","tid":"..."} ]
+}
+"tema": 6–10 korte søkeord/emner (1–2 ord hver) som beskriver hva tingen kan brukes til – det en lærer ville søkt på (f.eks. "telling", "plassverdi", "brøk"). Bruk grunnform.
+"aktiviteter": nøyaktig 3 konkrete, praktiske klasseromsaktiviteter. "tittel" kort, "skildring" 1–2 setninger praktisk og konkret, "trinn" f.eks. "3.–5." eller "Alle", "tid" f.eks. "20 min".
+Bruk norsk. Ikke skriv noe annet enn JSON-objektet.`;
 
   try{
     let txt=await window.aiGenererForslag(prompt);
     txt=String(txt||"").replace(/^```json\s*/i,"").replace(/```$/,"").trim();
-    let arr=JSON.parse(txt);
-    if(!Array.isArray(arr))arr=arr.aktiviteter||arr.activities||[];
+    const data=JSON.parse(txt);
+    let arr = Array.isArray(data) ? data : (data.aktiviteter||data.activities||[]);
+    const tema = (!Array.isArray(data) && Array.isArray(data.tema)) ? data.tema : [];
     arr=arr.slice(0,3);
     if(!arr.length)throw new Error("Tomt svar");
+
+    // tema – slå saman med det som alt står (utan duplikat)
+    if(tema.length){
+      const eks=$("#f_tema").value.split(",").map(t=>t.trim()).filter(Boolean);
+      const nye=tema.map(t=>String(t).trim().toLowerCase()).filter(Boolean);
+      const samla=[...new Set([...eks,...nye])];
+      $("#f_tema").value=samla.join(", ");
+    }
 
     // fjern tomme rader, legg til forslagene
     $$("#actList .act-edit").forEach(d=>{
@@ -1145,7 +1233,7 @@ Bruk norsk (bokmål/nynorsk er greit). Ikke skriv noe annet enn JSON-arrayet.`;
       tittel:a.tittel||a.title||"", skildring:a.skildring||a.beskrivelse||a.description||"",
       trinn:a.trinn||a.trinnnivå||a.grade||"", tid:a.tid||a.time||a.varighet||""
     })));
-    toast("La til 3 AI-forslag – juster gjerne teksten");
+    toast("La til AI-forslag og tema – juster gjerne");
   }catch(e){
     console.error(e);
     toast("Klarte ikke å hente AI-forslag. Prøv igjen.");
@@ -1202,24 +1290,28 @@ $("#f_navn").addEventListener("blur",()=>{
 $("#saveThing").onclick=async()=>{
   const data=readForm();
   if(!data.navn){toast("Tingen trenger et navn");return}
+  const id=editingId;
+  const wasAdmin=$("#adminOverlay").classList.contains("open");
+  closeOverlay($("#formOverlay"));               // lukk med ein gong
+  toast(id?"Lagret endringer":"Tingen er lagt til");
   try{
-    await saveItem(data,editingId);
-    closeOverlay($("#formOverlay"));
-    toast(editingId?"Lagret endringer":"Tingen er lagt til");
-    if($("#adminOverlay").classList.contains("open"))openAdmin();
-  }catch(e){console.error(e);toast("Klarte ikke å lagre")}
+    await saveItem(data,id);                      // lagringa går ferdig i bakgrunnen
+    if(wasAdmin)openAdmin();
+  }catch(e){console.error(e);toast("Klarte ikke å lagre – prøv igjen")}
 };
 $("#deleteThing").onclick=async()=>{
   if(!editingId)return;
   const it=items.find(x=>x.id===editingId);
   if(!confirm(`Slette «${it?.navn}»? Dette kan ikke angres.`))return;
+  const id=editingId;
+  const wasAdmin=$("#adminOverlay").classList.contains("open");
+  closeOverlay($("#formOverlay"));               // lukk med ein gong
+  closeDetail(false);document.body.classList.remove("view-detail");
+  toast("Tingen er slettet");
   try{
-    await deleteItem(editingId);
-    closeOverlay($("#formOverlay"));
-    closeDetail(false);document.body.classList.remove("view-detail");
-    toast("Tingen er slettet");
-    if($("#adminOverlay").classList.contains("open"))openAdmin();
-  }catch(e){console.error(e);toast("Klarte ikke å slette")}
+    await deleteItem(id);
+    if(wasAdmin)openAdmin();
+  }catch(e){console.error(e);toast("Klarte ikke å slette – prøv igjen")}
 };
 
 /* søk */
