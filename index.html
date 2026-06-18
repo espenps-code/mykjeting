@@ -177,6 +177,17 @@
     background:var(--ink);color:#fff;border-radius:999px;
     font-size:12px;font-weight:700;padding:5px 10px;
   }
+  .card .photo{width:100%;aspect-ratio:16/10;object-fit:cover;display:block;background:#F2EFE7}
+  .card.has-photo .ikon{display:none}
+  .detail-photo{width:100%;max-height:340px;object-fit:cover;display:block;
+    border-radius:var(--r);border:1px solid var(--line);margin:0 0 18px}
+
+  /* bildefelt i skjema */
+  .imgfield{display:flex;gap:14px;align-items:center}
+  .imgprev{width:84px;height:84px;border-radius:14px;object-fit:cover;
+    border:1px solid var(--line);background:#F2EFE7;display:none}
+  .imgprev.show{display:block}
+  .imgbtns{display:flex;flex-direction:column;gap:6px}
 
   .empty{
     text-align:center;color:var(--muted);padding:70px 20px;
@@ -499,8 +510,19 @@
           <input id="f_navn" placeholder="f.eks. Tangram-sett">
         </div>
         <div class="field">
-          <label>Ikon <span class="hint">(én emoji)</span></label>
+          <label>Ikon <span class="hint">(emoji, vises uten bilde)</span></label>
           <input id="f_ikon" placeholder="🧩" maxlength="4">
+        </div>
+      </div>
+      <div class="field">
+        <label>Bilde <span class="hint">– vises på forsida (valgfritt)</span></label>
+        <div class="imgfield">
+          <img id="f_bildePrev" class="imgprev" alt="">
+          <input id="f_bildeFile" type="file" accept="image/*" style="display:none">
+          <div class="imgbtns">
+            <button class="btn" type="button" id="f_bildePick">Velg bilde</button>
+            <button class="btn" type="button" id="f_bildeClear" style="display:none">Fjern bilde</button>
+          </div>
         </div>
       </div>
       <div class="field">
@@ -524,9 +546,9 @@
 
       <div class="ai-box" id="aiBox">
         <div class="ai-head"><span class="spark">✨</span> Forslag fra AI</div>
-        <p>Fyll inn navn og fag over, så lager AI tre ferdige aktivitetsforslag du kan justere.</p>
+        <p>Tre aktivitetsforslag lages automatisk når du har skrevet navnet. Du kan justere dem fritt – eller lage nye forslag her.</p>
         <button class="ai-btn" id="aiSuggest" type="button">
-          <span class="ai-spin"></span><span class="spark">✨</span> Lag 3 forslag
+          <span class="ai-spin"></span><span class="spark">✨</span> Lag forslag på nytt
         </button>
       </div>
 
@@ -613,7 +635,8 @@
    1) Lim inn Firebase-oppsettet ditt under (fra Firebase-konsollen).
    2) ADD_PIN  = koden alle bruker for å LEGGE TIL ting (nå 2008).
       ADMIN_PIN = privat kode bare du kjenner – for å REDIGERE/SLETTE.
-   3) GEMINI_KEY = nøkkel for AI-forslag (la stå tom om du ikke bruker AI).
+   3) AI-forslag bruker Firebase AI Logic – ingen nøkkel i koden!
+      Skru det på i Firebase-konsollen (se OPPSETT-guide.md).
    4) SITE_URL kan stå tom – da lager QR-kodene seg ut fra adressen
       siden ligger på. Sett den bare om du vil tvinge en bestemt adresse.
    ================================================================= */
@@ -628,10 +651,11 @@ const firebaseConfig = {
 const COLLECTION = "mykjeting";
 const ADD_PIN    = "2008";        // alle kan legge til med denne
 const ADMIN_PIN  = "2468";        // <-- PRIVAT: endre denne. For redigering/sletting
-const GEMINI_KEY = "";            // <-- AI-forslag. Lim inn Gemini-nøkkel, eller la stå tom
-const GEMINI_MODEL = "gemini-2.5-flash-lite";  // gratis-modell
+const AI_MODELL  = "gemini-2.5-flash";  // modell for AI-forslag (Firebase AI Logic)
 const SITE_URL   = "";            // f.eks. "https://espenps-code.github.io/mykjeting/"
 /* ▲▲▲  SLUTT OPPSETT  ▲▲▲ */
+window.FB_CONFIG = firebaseConfig;   // brukes av AI Logic-modulen lenger nede
+window.AI_MODELL = AI_MODELL;
 
 /* ---------- fag-fargar ---------- */
 const FAGFARGE = {
@@ -658,6 +682,8 @@ let items=[];            // alle ting
 let activeFag="*";       // valgt fag-filter
 let query="";            // søk
 let editingId=null;      // id som blir redigert
+let formBilde="";        // bilde (data-URL) i skjemaet
+let aiAutoKjort=false;   // har auto-AI kjørt for dette skjemaet?
 
 function $(s,r=document){return r.querySelector(s)}
 function $$(s,r=document){return [...r.querySelectorAll(s)]}
@@ -714,13 +740,28 @@ async function deleteItem(id){
 /* =================================================================
    RENDER – KATALOG
    ================================================================= */
+/* enkel norsk «stamming»: kutt vanlege endingar så «måling»→«mål», «måle»→«mål» */
+function stemW(w){
+  return w.replace(/(ene|ande|ende|inga|ingar|ing|enes|ens|er|ar|et|en|a|e)$/,"");
+}
+function ordliste(s){ return String(s||"").toLowerCase().split(/[^a-zæøå0-9]+/).filter(Boolean); }
 function matches(it){
   if(activeFag!=="*" && !(it.fag||[]).includes(activeFag)) return false;
   if(!query) return true;
-  const q=query.toLowerCase();
-  const hay=[it.navn,it.skildring,(it.fag||[]).join(" "),it.plassering,
+  const hayTekst=[it.navn,it.skildring,(it.fag||[]).join(" "),it.plassering,
     ...(it.aktivitetar||[]).flatMap(a=>[a.tittel,a.skildring])].join(" ").toLowerCase();
-  return hay.includes(q);
+  const hayStammer=ordliste(hayTekst).map(stemW);
+  const qOrd=ordliste(query);
+  if(!qOrd.length) return true;
+  // alle søkeord må finnes (som tekstbit eller via ordstamme)
+  return qOrd.every(qw=>{
+    if(hayTekst.includes(qw)) return true;
+    const qs=stemW(qw);
+    return hayStammer.some(hs=>{
+      if(!hs||!qs) return false;
+      return qs===hs || (qs.length>=3 && hs.startsWith(qs)) || (hs.length>=3 && qs.startsWith(hs));
+    });
+  });
 }
 
 function chipRow(){
@@ -740,8 +781,9 @@ function chipRow(){
 function cardHTML(it){
   const c=fargeFor((it.fag||[])[0]||"");
   const n=(it.aktivitetar||[]).length;
-  return `<button class="card" style="--cc:${c}" data-id="${it.id}">
+  return `<button class="card${it.bilde?' has-photo':''}" style="--cc:${c}" data-id="${it.id}">
     <div class="stripe"></div>
+    ${it.bilde?`<img class="photo" src="${esc(it.bilde)}" alt="" loading="lazy">`:''}
     ${n?`<span class="pill">${n} ${n===1?'aktivitet':'aktiviteter'}</span>`:''}
     <div class="body">
       <div class="ikon">${esc(it.ikon||"📦")}</div>
@@ -812,6 +854,7 @@ function openDetail(id,push=true){
   const acts=(it.aktivitetar||[]);
   $("#detail").innerHTML=`
     <button class="backlink" id="back">← Tilbake til oversikten</button>
+    ${it.bilde?`<img class="detail-photo" src="${esc(it.bilde)}" alt="${esc(it.navn)}">`:''}
     <div class="detail-head" style="--cc:${c}">
       <div class="ikon">${esc(it.ikon||"📦")}</div>
       <div class="info">
@@ -1020,6 +1063,9 @@ function openForm(id){
   const al=$("#actList");al.innerHTML="";
   (it?.aktivitetar||[{}]).forEach(a=>al.appendChild(actRow(a)));
   $("#deleteThing").style.display=it?"inline-flex":"none";
+  formBilde=it?.bilde||"";
+  oppdaterBildePrev();
+  aiAutoKjort=false;
   syncAiBox();
   openOverlay("formOverlay");
 }
@@ -1034,6 +1080,7 @@ function readForm(){
   return {
     navn:$("#f_navn").value.trim(),
     ikon:$("#f_ikon").value.trim()||"📦",
+    bilde:formBilde||"",
     fag, aktivitetar,
     skildring:$("#f_skildring").value.trim(),
     plassering:$("#f_plassering").value.trim(),
@@ -1064,16 +1111,16 @@ $("#pinOk").onclick=submitPin;
 $("#pinInput").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();submitPin()}});
 
 /* =================================================================
-   AI-FORSLAG (Google Gemini)
+   AI-FORSLAG (Firebase AI Logic – Gemini, ingen nøkkel i koden)
    ================================================================= */
 $("#aiSuggest").onclick=aiSuggest;
-function syncAiBox(){ $("#aiBox").style.display = GEMINI_KEY ? "block" : "none"; }
+function syncAiBox(){ $("#aiBox").style.display = (!demoMode) ? "block" : "none"; }
 async function aiSuggest(){
   const navn=$("#f_navn").value.trim();
   const fag=$$("#f_fagpick [data-fag]").filter(b=>b.getAttribute("aria-pressed")==="true").map(b=>b.dataset.fag);
   const skildring=$("#f_skildring").value.trim();
   if(!navn){toast("Skriv inn navn på tingen først");$("#f_navn").focus();return}
-  if(!GEMINI_KEY){toast("Mangler Gemini-nøkkel – se OPPSETT-guide.md");return}
+  if(!window.aiKlar){toast("AI er ikke klar – sjekk at AI Logic er skrudd på i Firebase (se OPPSETT-guide.md)");return}
 
   const btn=$("#aiSuggest"); btn.classList.add("loading"); btn.disabled=true;
   const prompt=`Du er lærer på norsk barneskole (1.–7. trinn). Foreslå nøyaktig 3 konkrete, praktiske klasseromsaktiviteter for læringsmateriellet under.
@@ -1083,18 +1130,8 @@ Svar KUN med gyldig JSON, et array med 3 objekt, hvert med feltene:
 Bruk norsk (bokmål/nynorsk er greit). Ikke skriv noe annet enn JSON-arrayet.`;
 
   try{
-    const url=`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(GEMINI_KEY)}`;
-    const res=await fetch(url,{
-      method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({
-        contents:[{parts:[{text:prompt}]}],
-        generationConfig:{temperature:0.9,responseMimeType:"application/json"}
-      })
-    });
-    if(!res.ok){throw new Error("HTTP "+res.status)}
-    const data=await res.json();
-    let txt=data?.candidates?.[0]?.content?.parts?.[0]?.text||"";
-    txt=txt.replace(/^```json\s*/i,"").replace(/```$/,"").trim();
+    let txt=await window.aiGenererForslag(prompt);
+    txt=String(txt||"").replace(/^```json\s*/i,"").replace(/```$/,"").trim();
     let arr=JSON.parse(txt);
     if(!Array.isArray(arr))arr=arr.aktiviteter||arr.activities||[];
     arr=arr.slice(0,3);
@@ -1116,6 +1153,51 @@ Bruk norsk (bokmål/nynorsk er greit). Ikke skriv noe annet enn JSON-arrayet.`;
     btn.classList.remove("loading"); btn.disabled=false;
   }
 }
+
+/* =================================================================
+   BILDE-HANDTERING + AUTO-AI
+   ================================================================= */
+function oppdaterBildePrev(){
+  const p=$("#f_bildePrev"), c=$("#f_bildeClear");
+  if(formBilde){ p.src=formBilde; p.classList.add("show"); c.style.display="inline-flex"; }
+  else { p.removeAttribute("src"); p.classList.remove("show"); c.style.display="none"; }
+}
+function krympBilde(file){
+  return new Promise((res,rej)=>{
+    const r=new FileReader();
+    r.onerror=()=>rej(new Error("lesefeil"));
+    r.onload=()=>{
+      const img=new Image();
+      img.onerror=()=>rej(new Error("bildefeil"));
+      img.onload=()=>{
+        const maks=900; let w=img.width,h=img.height;
+        if(w>maks||h>maks){const s=Math.min(maks/w,maks/h); w=Math.round(w*s); h=Math.round(h*s);}
+        const cv=document.createElement("canvas"); cv.width=w; cv.height=h;
+        cv.getContext("2d").drawImage(img,0,0,w,h);
+        res(cv.toDataURL("image/jpeg",0.72));
+      };
+      img.src=r.result;
+    };
+    r.readAsDataURL(file);
+  });
+}
+$("#f_bildePick").onclick=()=>$("#f_bildeFile").click();
+$("#f_bildeClear").onclick=()=>{ formBilde=""; oppdaterBildePrev(); };
+$("#f_bildeFile").onchange=async e=>{
+  const f=e.target.files&&e.target.files[0]; if(!f)return;
+  try{ formBilde=await krympBilde(f); oppdaterBildePrev(); }
+  catch(err){ console.error(err); toast("Klarte ikke å lese bildet"); }
+  e.target.value="";
+};
+/* auto-AI: hent 3 forslag når navnet er fylt inn for ein ny ting */
+$("#f_navn").addEventListener("blur",()=>{
+  if(editingId||aiAutoKjort||!window.aiKlar) return;
+  if(!$("#f_navn").value.trim()) return;
+  const fyltInn=$$("#actList .act-edit").some(d=>d.querySelector(".a_tittel").value.trim());
+  if(fyltInn) return;
+  aiAutoKjort=true;
+  aiSuggest();
+});
 
 $("#saveThing").onclick=async()=>{
   const data=readForm();
@@ -1158,6 +1240,31 @@ window.addEventListener("load",()=>{
     setTimeout(tryOpen,200);
   }
 });
+</script>
+
+<!-- ============ AI LOGIC (Firebase) – Gemini utan nøkkel i koden ============ -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
+  import { getAI, getGenerativeModel, GoogleAIBackend } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-ai.js";
+  try{
+    const cfg = window.FB_CONFIG;
+    if(cfg && cfg.apiKey && cfg.apiKey !== "DIN_API_KEY"){
+      const aiApp = initializeApp(cfg, "aiApp");           // eige app-namn, kolliderer ikkje med Firestore
+      const ai = getAI(aiApp, { backend: new GoogleAIBackend() });
+      const model = getGenerativeModel(ai, {
+        model: window.AI_MODELL || "gemini-2.5-flash",
+        generationConfig: { temperature: 0.9, responseMimeType: "application/json" }
+      });
+      window.aiGenererForslag = async (promptText) => {
+        const result = await model.generateContent(promptText);
+        return result.response.text();
+      };
+      window.aiKlar = true;
+    }
+  }catch(e){
+    console.error("AI Logic kunne ikkje startast:", e);
+    window.aiKlar = false;
+  }
 </script>
 </body>
 </html>
