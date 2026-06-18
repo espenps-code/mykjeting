@@ -714,7 +714,7 @@ const firebaseConfig = {
 const COLLECTION = "mykjeting";
 const ADD_PIN    = "2008";        // alle kan legge til med denne
 const ADMIN_PIN  = "2468";        // <-- PRIVAT: endre denne. For redigering/sletting
-const AI_MODELL  = "gemini-2.5-flash";  // modell for AI-forslag (Firebase AI Logic)
+const AI_MODELL  = "gemini-2.5-flash-lite";  // lettare modell, mindre kø (Firebase AI Logic)
 const SITE_URL   = "";            // f.eks. "https://espenps-code.github.io/mykjeting/"
 /* ▲▲▲  SLUTT OPPSETT  ▲▲▲ */
 window.FB_CONFIG = firebaseConfig;   // brukes av AI Logic-modulen lenger nede
@@ -770,7 +770,7 @@ let aiAutoKjort=false;   // har auto-AI kjørt for dette skjemaet?
 function $(s,r=document){return r.querySelector(s)}
 function $$(s,r=document){return [...r.querySelectorAll(s)]}
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),2200)}
+function toast(m,ms){const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),ms||2200)}
 
 function initData(){
   const configured = firebaseConfig.apiKey && firebaseConfig.apiKey!=="DIN_API_KEY";
@@ -969,13 +969,9 @@ function openDetail(id,push=true){
     <div class="detail-actions">
       <button class="btn" id="d_print">🖨 Skriv ut</button>
       <button class="btn" id="d_qr">QR til kassen</button>
-      ${'' /* admin-knapp leggjast til under */}
+      <button class="btn" id="d_edit">✏️ Rediger</button>
     </div>`;
-  if(isAdmin){
-    $(".detail-actions").insertAdjacentHTML("beforeend",
-      `<button class="btn" id="d_edit">✏️ Rediger</button>`);
-    $("#d_edit").onclick=()=>openForm(it.id);
-  }
+  $("#d_edit").onclick=()=>requestEdit(it.id);
   $("#back").onclick=()=>closeDetail();
   $("#d_print").onclick=()=>{document.body.classList.add("printing-detail");window.print();setTimeout(()=>document.body.classList.remove("printing-detail"),500)};
   $("#d_qr").onclick=()=>showSingleQR(it);
@@ -1072,6 +1068,24 @@ function requestAdd(){
   });
 }
 
+/* «Rediger ting» – alle med ADD_PIN (eller admin) kan redigere ein eksisterande ting */
+function requestEdit(id){
+  if(isAdmin||canAdd){openForm(id);return}
+  askCode({
+    title:"Rediger ting", icon:"✏️",
+    hint:`Skriv inn koden for å redigere.`,
+    onValid:code=>{
+      if(code===ADD_PIN||(ADMIN_PIN&&code===ADMIN_PIN)){
+        canAdd=true;
+        if(ADMIN_PIN&&code===ADMIN_PIN)isAdmin=true;
+        openForm(id);
+        return true;
+      }
+      return false;
+    }
+  });
+}
+
 /* «Administrer» – krev privat admin-kode (rediger/slett/QR) */
 function enterAdmin(){
   if(isAdmin){openAdmin();return}
@@ -1150,7 +1164,7 @@ function openForm(id){
   fagPicker(it?.fag||[]);
   const al=$("#actList");al.innerHTML="";
   (it?.aktivitetar||[{}]).forEach(a=>al.appendChild(actRow(a)));
-  $("#deleteThing").style.display=it?"inline-flex":"none";
+  $("#deleteThing").style.display=(it&&isAdmin)?"inline-flex":"none";
   formBilde=it?.bilde||"";
   oppdaterBildePrev();
   settBildeStatus(formBilde?("Bilde lagret · "+Math.round(dataUrlBytes(formBilde)/1024)+" kB"):"");
@@ -1182,7 +1196,7 @@ function readForm(){
    OVERLAY-HJELP + KNAPPAR
    ================================================================= */
 function openOverlay(id){$("#"+id).classList.add("open");$("#"+id).setAttribute("aria-hidden","false")}
-function closeOverlay(el){el.classList.remove("open");el.setAttribute("aria-hidden","true")}
+function closeOverlay(el){if(el.contains(document.activeElement))document.activeElement.blur();el.classList.remove("open");el.setAttribute("aria-hidden","true")}
 $$(".overlay").forEach(o=>{
   o.addEventListener("click",e=>{if(e.target===o)closeOverlay(o)});
   $$("[data-close]",o).forEach(b=>b.onclick=()=>closeOverlay(o));
@@ -1205,6 +1219,23 @@ $("#pinInput").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefau
    ================================================================= */
 $("#aiSuggest").onclick=aiSuggest;
 function syncAiBox(){ $("#aiBox").style.display = (!demoMode) ? "block" : "none"; }
+/* kall AI-en, men prøv på nytt eit par gonger ved mellombels overbelastning (500/503) */
+async function aiKall(promptText, forsoek=3){
+  let sisteFeil;
+  for(let i=0;i<forsoek;i++){
+    try{ return await window.aiGenererForslag(promptText); }
+    catch(e){
+      sisteFeil=e;
+      const m=String((e&&(e.message||e.code))||"");
+      if(i<forsoek-1 && /(^|[^0-9])(500|503)([^0-9]|$)|high demand|overload|unavailable|try again/i.test(m)){
+        await new Promise(r=>setTimeout(r, 1300*(i+1)));   // vent litt og prøv igjen
+        continue;
+      }
+      throw e;
+    }
+  }
+  throw sisteFeil;
+}
 async function aiSuggest(){
   const navn=$("#f_navn").value.trim();
   const fag=$$("#f_fagpick [data-fag]").filter(b=>b.getAttribute("aria-pressed")==="true").map(b=>b.dataset.fag);
@@ -1227,7 +1258,7 @@ Svar KUN med gyldig JSON med nøyaktig denne forma:
 Bruk norsk. Ikkje skriv noko anna enn JSON-objektet.`;
 
   try{
-    let txt=await window.aiGenererForslag(prompt);
+    let txt=await aiKall(prompt);
     txt=String(txt||"").replace(/^```json\s*/i,"").replace(/```$/,"").trim();
     const data=JSON.parse(txt);
     let arr = Array.isArray(data) ? data : (data.aktiviteter||data.activities||[]);
@@ -1351,7 +1382,11 @@ $("#saveThing").onclick=async()=>{
   try{
     await saveItem(data,id);                      // lagringa går ferdig i bakgrunnen
     if(wasAdmin)openAdmin();
-  }catch(e){console.error(e);toast("Klarte ikke å lagre – prøv igjen")}
+  }catch(e){
+    console.error("Lagring feila:", e);
+    openOverlay("formOverlay");                    // opne att så arbeidet ikkje går tapt
+    toast("Lagring feilet: "+(e?.code||e?.message||"ukjent feil"), 8000);
+  }
 };
 $("#deleteThing").onclick=async()=>{
   if(!editingId)return;
@@ -1365,7 +1400,7 @@ $("#deleteThing").onclick=async()=>{
   try{
     await deleteItem(id);
     if(wasAdmin)openAdmin();
-  }catch(e){console.error(e);toast("Klarte ikke å slette – prøv igjen")}
+  }catch(e){console.error("Sletting feila:", e);toast("Sletting feilet: "+(e?.code||e?.message||"ukjent feil"), 8000)}
 };
 
 /* søk */
