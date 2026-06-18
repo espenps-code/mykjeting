@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#EFAE54"/>
+      <stop offset="1" stop-color="#E8A23D"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="15" fill="url(#bg)"/>
+  <!-- eske / "ting" -->
+  <g fill="none" stroke="#FFFDF6" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M32 14 50 23 50 41 32 50 14 41 14 23 Z"/>
+    <path d="M14 23 32 32 50 23"/>
+    <path d="M32 32 32 50"/>
+  </g>
+  <!-- merkeprikk -->
+  <circle cx="32" cy="23" r="3.4" fill="#E5654E"/>
+</svg>
