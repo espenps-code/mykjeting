@@ -197,6 +197,8 @@
     border:1px solid var(--line);background:#F2EFE7;display:none}
   .imgprev.show{display:block}
   .imgbtns{display:flex;flex-direction:column;gap:6px}
+  .imgstatus{font-size:12.5px;color:var(--muted);min-height:16px}
+  .imgstatus.ok{color:#2B7A4B}
 
   .empty{
     text-align:center;color:var(--muted);padding:70px 20px;
@@ -445,16 +447,22 @@
   main, footer{position:relative;z-index:1}
   .bg-fag{
     position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;
-    perspective:900px;
   }
   .bg-fag span{
-    position:absolute;display:block;opacity:.10;
-    transform-style:preserve-3d;will-change:transform;
+    position:absolute;display:block;opacity:.10;will-change:transform;
     filter:saturate(.9);
   }
   .bg-fag span img{width:100%;height:100%;display:block}
-  @keyframes fagspin{from{transform:rotateY(0deg)}to{transform:rotateY(360deg)}}
-  @media (prefers-reduced-motion: reduce){ .bg-fag span{animation:none!important} }
+  @keyframes fagduv{0%,100%{transform:translateY(0)}50%{transform:translateY(-16px)}}
+
+  /* fag-ikon ved overskrifta i headeren */
+  .hero-deco{position:absolute;inset:0;pointer-events:none;z-index:1}
+  .hero-deco span{position:absolute;display:block;opacity:.7;will-change:transform}
+  .hero-deco span img{width:100%;height:100%;display:block;
+    filter:drop-shadow(0 5px 10px rgba(31,30,26,.14))}
+  @media (max-width:680px){ .hero-deco{display:none} }
+
+  @media (prefers-reduced-motion: reduce){ .bg-fag span,.hero-deco span{animation:none!important} }
 
   /* tema – «brukes til»-merkelappar */
   .temarad{display:flex;flex-wrap:wrap;gap:7px;margin:2px 0 16px}
@@ -468,12 +476,12 @@
 
 <!-- subtil 3D-spinnande fag-bakgrunn -->
 <div class="bg-fag" aria-hidden="true">
-  <span style="top:7%;left:3%;width:118px;height:118px;animation:fagspin 17s linear infinite"><img src="fagikoner/ikon-math.webp" alt=""></span>
-  <span style="top:60%;left:7%;width:92px;height:92px;animation:fagspin 23s linear infinite .5s"><img src="fagikoner/ikon-book.webp" alt=""></span>
-  <span style="top:21%;left:85%;width:108px;height:108px;animation:fagspin 19s linear infinite"><img src="fagikoner/ikon-nature.webp" alt=""></span>
-  <span style="top:70%;left:82%;width:128px;height:128px;animation:fagspin 26s linear infinite .9s"><img src="fagikoner/ikon-art.webp" alt=""></span>
-  <span style="top:40%;left:47%;width:78px;height:78px;animation:fagspin 29s linear infinite"><img src="fagikoner/ikon-music.webp" alt=""></span>
-  <span style="top:87%;left:38%;width:96px;height:96px;animation:fagspin 21s linear infinite .7s"><img src="fagikoner/ikon-gym.webp" alt=""></span>
+  <span style="top:7%;left:3%;width:118px;height:118px;animation:fagduv 7s ease-in-out infinite"><img src="fagikoner/ikon-math.webp" alt=""></span>
+  <span style="top:60%;left:7%;width:92px;height:92px;animation:fagduv 8.5s ease-in-out infinite .6s"><img src="fagikoner/ikon-book.webp" alt=""></span>
+  <span style="top:21%;left:85%;width:108px;height:108px;animation:fagduv 6.5s ease-in-out infinite .3s"><img src="fagikoner/ikon-nature.webp" alt=""></span>
+  <span style="top:70%;left:82%;width:128px;height:128px;animation:fagduv 9s ease-in-out infinite 1s"><img src="fagikoner/ikon-art.webp" alt=""></span>
+  <span style="top:40%;left:47%;width:78px;height:78px;animation:fagduv 7.5s ease-in-out infinite .2s"><img src="fagikoner/ikon-music.webp" alt=""></span>
+  <span style="top:87%;left:38%;width:96px;height:96px;animation:fagduv 8s ease-in-out infinite .9s"><img src="fagikoner/ikon-gym.webp" alt=""></span>
 </div>
 
 <div class="banner" id="demoBanner" style="display:none">
@@ -482,6 +490,12 @@
 
 <!-- ============ HEADER MED 3D ============ -->
 <header class="hero">
+  <div class="hero-deco" aria-hidden="true">
+    <span style="top:13%;left:8%;width:58px;height:58px;animation:fagduv 6s ease-in-out infinite"><img src="fagikoner/ikon-math.webp" alt=""></span>
+    <span style="top:9%;right:9%;width:52px;height:52px;animation:fagduv 7s ease-in-out infinite .5s"><img src="fagikoner/ikon-nature.webp" alt=""></span>
+    <span style="top:33%;left:15%;width:46px;height:46px;animation:fagduv 6.5s ease-in-out infinite .9s"><img src="fagikoner/ikon-music.webp" alt=""></span>
+    <span style="top:30%;right:17%;width:50px;height:50px;animation:fagduv 7.5s ease-in-out infinite .3s"><img src="fagikoner/ikon-art.webp" alt=""></span>
+  </div>
   <div class="hero-inner">
     <div class="wordmark"><h1>Mykje&nbsp;Ting<span class="dot"></span></h1></div>
     <p class="tagline">Alt skolen har av ting – sortert etter fag, med ferdige forslag til hva du kan gjøre med dem.</p>
@@ -564,6 +578,7 @@
           <div class="imgbtns">
             <button class="btn" type="button" id="f_bildePick">Velg bilde</button>
             <button class="btn" type="button" id="f_bildeClear" style="display:none">Fjern bilde</button>
+            <div class="imgstatus" id="f_bildeStatus"></div>
           </div>
         </div>
       </div>
@@ -1138,6 +1153,7 @@ function openForm(id){
   $("#deleteThing").style.display=it?"inline-flex":"none";
   formBilde=it?.bilde||"";
   oppdaterBildePrev();
+  settBildeStatus(formBilde?("Bilde lagret · "+Math.round(dataUrlBytes(formBilde)/1024)+" kB"):"");
   aiAutoKjort=false;
   syncAiBox();
   openOverlay("formOverlay");
@@ -1250,31 +1266,61 @@ function oppdaterBildePrev(){
   if(formBilde){ p.src=formBilde; p.classList.add("show"); c.style.display="inline-flex"; }
   else { p.removeAttribute("src"); p.classList.remove("show"); c.style.display="none"; }
 }
-function krympBilde(file){
+function settBildeStatus(tekst, ok){
+  const el=$("#f_bildeStatus"); if(!el)return;
+  el.textContent=tekst||""; el.classList.toggle("ok", !!ok);
+}
+/* teikn bildet på nytt i gitt storleik/kvalitet → data-URL (JPEG) */
+function teiknBilde(img, maks, kvalitet){
+  let w=img.width, h=img.height;
+  if(w>maks||h>maks){ const s=Math.min(maks/w,maks/h); w=Math.round(w*s); h=Math.round(h*s); }
+  const cv=document.createElement("canvas"); cv.width=w; cv.height=h;
+  const ctx=cv.getContext("2d");
+  ctx.fillStyle="#ffffff"; ctx.fillRect(0,0,w,h);   // hvit bakgrunn (for gjennomsiktige PNG)
+  ctx.drawImage(img,0,0,w,h);
+  return cv.toDataURL("image/jpeg", kvalitet);
+}
+function dataUrlBytes(durl){
+  const i=durl.indexOf(","); return Math.floor((durl.length-i-1)*0.75);
+}
+function lesBilde(file){
   return new Promise((res,rej)=>{
     const r=new FileReader();
     r.onerror=()=>rej(new Error("lesefeil"));
     r.onload=()=>{
       const img=new Image();
       img.onerror=()=>rej(new Error("bildefeil"));
-      img.onload=()=>{
-        const maks=900; let w=img.width,h=img.height;
-        if(w>maks||h>maks){const s=Math.min(maks/w,maks/h); w=Math.round(w*s); h=Math.round(h*s);}
-        const cv=document.createElement("canvas"); cv.width=w; cv.height=h;
-        cv.getContext("2d").drawImage(img,0,0,w,h);
-        res(cv.toDataURL("image/jpeg",0.72));
-      };
+      img.onload=()=>res(img);
       img.src=r.result;
     };
     r.readAsDataURL(file);
   });
 }
+/* mål-styrt komprimering: krymp til data-URL er trygt under grensa */
+async function krympBilde(file){
+  const img=await lesBilde(file);
+  const MAAL=480*1024;          // mål under ~480 kB (god margin til Firestore-grensa på 1 MB)
+  let maks=1000, kvalitet=0.78, runder=0;
+  let ut=teiknBilde(img,maks,kvalitet);
+  while(dataUrlBytes(ut)>MAAL && runder<14){
+    if(kvalitet>0.45){ kvalitet=Math.round((kvalitet-0.08)*100)/100; }
+    else if(maks>480){ maks-=140; kvalitet=0.7; }
+    else break;
+    ut=teiknBilde(img,maks,kvalitet);
+    runder++;
+  }
+  return ut;
+}
 $("#f_bildePick").onclick=()=>$("#f_bildeFile").click();
-$("#f_bildeClear").onclick=()=>{ formBilde=""; oppdaterBildePrev(); };
+$("#f_bildeClear").onclick=()=>{ formBilde=""; oppdaterBildePrev(); settBildeStatus(""); };
 $("#f_bildeFile").onchange=async e=>{
   const f=e.target.files&&e.target.files[0]; if(!f)return;
-  try{ formBilde=await krympBilde(f); oppdaterBildePrev(); }
-  catch(err){ console.error(err); toast("Klarte ikke å lese bildet"); }
+  settBildeStatus("Komprimerer …");
+  try{
+    formBilde=await krympBilde(f);
+    oppdaterBildePrev();
+    settBildeStatus("Bilde klart · "+Math.round(dataUrlBytes(formBilde)/1024)+" kB", true);
+  }catch(err){ console.error(err); toast("Klarte ikke å lese bildet"); settBildeStatus(""); }
   e.target.value="";
 };
 /* auto-AI: hent 3 forslag når navnet er fylt inn for ein ny ting */
