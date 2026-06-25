@@ -181,6 +181,21 @@
   /* fag-ikon som bilete i tile (i staden for emoji-boks) */
   .ikon.bilde{background:#FBFAF5;padding:6px}
   .ikon.bilde img{width:100%;height:100%;object-fit:contain;display:block}
+  /* fleire fag-ikon side om side når ein ting passar til fleire fag */
+  .ikon-group{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:12px}
+  .ikon-group .ikon{margin-bottom:0}
+  .card .ikon-group .ikon{width:46px;height:46px;font-size:24px}
+  .detail-head .ikon-group{flex:none;margin-bottom:0;max-width:175px}
+  .detail-head .ikon-group .ikon{width:64px;height:64px}
+  /* «Vis mer» under kvar faggruppe + skjulte ekstrakort */
+  .card.extra-hidden{display:none}
+  .show-more{
+    display:inline-flex;align-items:center;gap:6px;margin:12px 0 4px;
+    border:1px solid var(--line);background:var(--card);color:var(--ink);
+    cursor:pointer;font:inherit;font-weight:700;font-size:14px;
+    padding:9px 16px;border-radius:999px;
+  }
+  .show-more:hover{background:var(--ink);color:#fff;border-color:var(--ink)}
   /* detalj: bilete og info ved sida av kvarandre */
   .detail-top{display:flex;gap:22px;align-items:flex-start;margin-bottom:8px}
   .detail-top .detail-head{flex:1 1 0;min-width:0;margin:0}
@@ -213,10 +228,12 @@
   @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 
   .backlink{
-    display:inline-flex;align-items:center;gap:8px;margin:30px 0 6px;
-    border:0;background:none;color:var(--muted);cursor:pointer;font:inherit;font-size:15px;
+    display:inline-flex;align-items:center;gap:8px;margin:18px 0 18px;
+    border:1px solid var(--line);background:var(--card);color:var(--ink);
+    cursor:pointer;font:inherit;font-weight:700;font-size:15px;
+    padding:11px 20px;border-radius:999px;box-shadow:var(--shadow);
   }
-  .backlink:hover{color:var(--ink)}
+  .backlink:hover{background:var(--ink);color:#fff;border-color:var(--ink)}
   .detail-head{
     display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;
     background:var(--card);border:1px solid var(--line);border-radius:var(--r);
@@ -746,10 +763,14 @@ function ikonFor(it){
   const f=(it.fag||[])[0];
   return FAGIKON[f] ? `fagikoner/${FAGIKON[f]}.webp` : null;
 }
-/* lagar innhaldet i ikon-tile: fag-bilete om mogleg, elles emoji */
+/* lagar innhaldet i ikon-tile: eitt fag-bilete per fag (om mogleg), elles emoji */
 function ikonTile(it, klasse){
-  const url=ikonFor(it);
-  if(url) return `<div class="ikon bilde ${klasse||''}"><img src="${url}" alt=""></div>`;
+  const fags=(it.fag||[]).filter(f=>FAGIKON[f]);
+  if(fags.length){
+    const tiles=fags.map(f=>`<div class="ikon bilde" title="${esc(f)}"><img src="fagikoner/${FAGIKON[f]}.webp" alt="${esc(f)}"></div>`).join('');
+    return fags.length===1 ? tiles.replace('class="ikon bilde"',`class="ikon bilde ${klasse||''}"`)
+                           : `<div class="ikon-group ${klasse||''}">${tiles}</div>`;
+  }
   return `<div class="ikon ${klasse||''}">${esc(it.ikon||"📦")}</div>`;
 }
 
@@ -861,10 +882,10 @@ function chipRow(){
   $$(".chip",wrap).forEach(b=>b.onclick=()=>{activeFag=b.dataset.fag;render()});
 }
 
-function cardHTML(it){
+function cardHTML(it, hidden){
   const c=fargeFor((it.fag||[])[0]||"");
   const n=(it.aktivitetar||[]).length;
-  return `<button class="card${it.bilde?' has-photo':''}" style="--cc:${c}" data-id="${it.id}">
+  return `<button class="card${it.bilde?' has-photo':''}${hidden?' extra-hidden':''}" style="--cc:${c}" data-id="${it.id}">
     <div class="stripe"></div>
     ${it.bilde?`<img class="photo" src="${esc(it.bilde)}" alt="" loading="lazy">`:''}
     ${n?`<span class="pill">${n} ${n===1?'aktivitet':'aktiviteter'}</span>`:''}
@@ -906,15 +927,25 @@ function render(){
     }
     const ordna=[...FAGORDEN.filter(f=>grupper[f]),
                  ...Object.keys(grupper).filter(f=>!FAGORDEN.includes(f)).sort()];
+    const LIM=4;   // vis så mange kort per fag før «Vis mer»
     root.innerHTML=ordna.map(f=>{
       const c=fargeFor(f);
+      const arr=grupper[f];
+      const cards=arr.map((it,idx)=>cardHTML(it, idx>=LIM)).join('');
+      const more=arr.length>LIM
+        ? `<button class="show-more" type="button">Vis ${arr.length-LIM} til ↓</button>` : '';
       return `<div class="group-head"><span class="bar" style="--gc:${c}"></span>
-        <h2>${esc(f)}</h2><span class="count">${grupper[f].length}</span><span class="rule"></span></div>
-        <div class="grid">${grupper[f].map(cardHTML).join('')}</div>`;
+        <h2>${esc(f)}</h2><span class="count">${arr.length}</span><span class="rule"></span></div>
+        <div class="grid">${cards}</div>${more}`;
     }).join('');
   }else{
-    root.innerHTML=`<div class="grid">${list.map(cardHTML).join('')}</div>`;
+    root.innerHTML=`<div class="grid">${list.map(it=>cardHTML(it)).join('')}</div>`;
   }
+  $$(".show-more",root).forEach(b=>b.onclick=()=>{
+    const grid=b.previousElementSibling;
+    $$(".card.extra-hidden",grid).forEach(c=>c.classList.remove("extra-hidden"));
+    b.remove();
+  });
   $$(".card",root).forEach(b=>b.onclick=()=>openDetail(b.dataset.id));
 }
 
@@ -1171,6 +1202,9 @@ function openForm(id){
   aiAutoKjort=false;
   syncAiBox();
   openOverlay("formOverlay");
+  // start alltid skjemaet frå toppen (elles står det der førre ting vart lagra)
+  const ov=$("#formOverlay"); ov.scrollTop=0;
+  requestAnimationFrame(()=>{ov.scrollTop=0});
 }
 function readForm(){
   const fag=$$("#f_fagpick [data-fag]").filter(b=>b.getAttribute("aria-pressed")==="true").map(b=>b.dataset.fag);
