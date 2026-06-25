@@ -391,8 +391,8 @@
   .mat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
   .mat-card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
     padding:18px;box-shadow:var(--shadow);border-top:7px solid var(--cc,#C7803A)}
-  .mat-photo{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:12px;
-    margin-bottom:14px;background:#F2EFE7;display:block}
+  .mat-photo{width:100%;aspect-ratio:4/3;object-fit:cover;object-position:top center;
+    border-radius:12px;margin-bottom:14px;background:#fff;border:1px solid var(--line);display:block}
   .mat-top{display:flex;gap:14px;align-items:flex-start}
   .mat-ic{width:52px;height:52px;border-radius:14px;font-size:26px;flex:none;
     display:flex;align-items:center;justify-content:center;
@@ -403,6 +403,19 @@
   .mat-card .tags{margin-top:13px}
   .mat-card .temarad{margin:10px 0 10px}
   .mat-card .filrad{margin:6px 0 0}
+  /* fag-ikon i materiell-kort (frå ikonTile) */
+  .mat-card .ikon{width:52px;height:52px;border-radius:14px;font-size:26px;flex:none;
+    display:flex;align-items:center;justify-content:center;
+    background:color-mix(in srgb,var(--cc,#999) 16%, white);
+    border:1px solid color-mix(in srgb,var(--cc,#999) 26%, white)}
+  .mat-card .ikon-group{flex:none;display:flex;gap:6px;flex-wrap:wrap;max-width:116px;margin:0}
+  .mat-card .ikon-group .ikon{width:44px;height:44px}
+  /* vis alle nedlastingar på kort med mange filer */
+  .filkort.fil-skjult{display:none}
+  .vis-alle{display:inline-flex;align-items:center;gap:6px;margin-top:10px;
+    border:1px solid var(--line);background:var(--card);color:var(--ink);
+    cursor:pointer;font:inherit;font-weight:700;font-size:13.5px;padding:8px 15px;border-radius:999px}
+  .vis-alle:hover{background:var(--ink);color:#fff;border-color:var(--ink)}
 
   /* admin-liste */
   .adminlist{display:flex;flex-direction:column;gap:10px}
@@ -1143,10 +1156,16 @@ function render(){
 function matCardHTML(it){
   const filer=(it.filer||[]);
   const c=fargeFor((it.fag||[])[0]||"");
+  const LIM=5;   // vis så mange nedlastinger før «Vis alle»
+  const filerHtml=filer.map((f,idx)=>`<a class="filkort${idx>=LIM?' fil-skjult':''}" href="${esc(f.url)}" target="_blank" rel="noopener">
+      <span class="fk-ic">📄</span>
+      <span class="fk-tx"><strong>${esc(f.tittel||f.navn||'PDF')}</strong><small>PDF${f.storrelse?` · ${Math.round(f.storrelse/1024)} kB`:''}</small></span>
+      <span class="fk-dl">Last ned ↓</span></a>`).join('');
+  const visAlle=filer.length>LIM?`<button class="vis-alle" type="button">Vis alle ${filer.length} filer ↓</button>`:'';
   return `<div class="mat-card" style="--cc:${c}">
     ${it.bilde?`<img class="mat-photo" src="${esc(it.bilde)}" alt="" loading="lazy">`:''}
     <div class="mat-top">
-      <div class="mat-ic">📄</div>
+      ${ikonTile(it)}
       <div class="mat-h">
         <h3>${esc(it.navn)}</h3>
         ${it.skildring?`<p>${esc(it.skildring)}</p>`:''}
@@ -1155,10 +1174,7 @@ function matCardHTML(it){
     </div>
     ${(it.fag&&it.fag.length)?`<div class="tags">${it.fag.map(f=>`<span class="tag" style="--gc:${fargeFor(f)}">${esc(f)}</span>`).join('')}</div>`:''}
     ${(it.tema&&it.tema.length)?`<div class="temarad">${it.tema.map(t=>`<span class="tematag">${esc(t)}</span>`).join('')}</div>`:''}
-    ${filer.length?`<div class="filrad">${filer.map(f=>`<a class="filkort" href="${esc(f.url)}" target="_blank" rel="noopener">
-      <span class="fk-ic">📄</span>
-      <span class="fk-tx"><strong>${esc(f.tittel||f.navn||'PDF')}</strong><small>PDF${f.storrelse?` · ${Math.round(f.storrelse/1024)} kB`:''}</small></span>
-      <span class="fk-dl">Last ned ↓</span></a>`).join('')}</div>`
+    ${filer.length?`<div class="filrad">${filerHtml}</div>${visAlle}`
       :`<div class="empty" style="padding:18px;margin-top:10px">Ingen filer lagt inn ennå.</div>`}
   </div>`;
 }
@@ -1202,6 +1218,10 @@ function renderMateriell(){
     root.innerHTML=`<div class="mat-grid">${list.map(matCardHTML).join('')}</div>`;
   }
   $$("[data-medit]",root).forEach(b=>b.onclick=()=>requestMatEdit(b.dataset.medit));
+  $$(".vis-alle",root).forEach(b=>b.onclick=()=>{
+    b.closest(".mat-card").querySelectorAll(".filkort.fil-skjult").forEach(e=>e.classList.remove("fil-skjult"));
+    b.remove();
+  });
 }
 function byttVisning(v){
   aktivVisning=v;
