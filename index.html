@@ -221,6 +221,19 @@
   }
   .empty .big{font-size:40px;margin-bottom:8px}
 
+  /* lasteskjerm medan ting hentast frå databasen */
+  .loading{
+    text-align:center;color:var(--muted);padding:70px 20px;
+    display:flex;flex-direction:column;align-items:center;gap:14px;animation:fade .3s ease;
+  }
+  .loading .spin{
+    width:40px;height:40px;border-radius:50%;
+    border:4px solid var(--line);border-top-color:#E8A23D;
+    animation:aispin .9s linear infinite;
+  }
+  .loading strong{font-family:'Bricolage Grotesque',sans-serif;font-size:19px;color:var(--ink)}
+  .loading span{font-size:14px}
+
   /* ---------- DETALJVISNING (det QR-en åpner) ---------- */
   .detail{display:none;animation:fade .25s ease}
   body.view-detail .toolbar,body.view-detail #catalog{display:none}
@@ -330,6 +343,24 @@
   .act-edit .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
   .act-edit .top strong{font-family:'Space Mono',monospace;font-size:13px;color:var(--muted)}
   .delrow{border:0;background:none;color:#B23A2E;cursor:pointer;font:inherit;font-size:13px}
+  /* utskriftsmateriell – rader i skjemaet */
+  .fil-edit{border:1px solid var(--line);border-radius:13px;padding:12px 14px;margin-bottom:10px;background:#fff}
+  .fil-edit .top{display:flex;align-items:center;gap:10px}
+  .fil-edit .fil-ic{font-size:20px;flex:none}
+  .fil-edit .f_tittel{flex:1;min-width:0}
+  .fil-edit .fil-meta{font-size:12.5px;color:var(--muted);margin-top:7px;padding-left:30px}
+  /* utskriftsmateriell – nedlastingskort i detaljvisning */
+  .filrad{display:flex;flex-direction:column;gap:8px;margin:2px 0 18px}
+  .filkort{display:flex;align-items:center;gap:14px;text-decoration:none;color:var(--ink);
+    border:1px solid var(--line);border-radius:13px;padding:13px 16px;background:var(--card);
+    box-shadow:var(--shadow);transition:background .15s}
+  .filkort:hover{background:#FBF7EC}
+  .filkort .fk-ic{font-size:26px;flex:none}
+  .filkort .fk-tx{flex:1;min-width:0;display:flex;flex-direction:column}
+  .filkort .fk-tx strong{font-size:15.5px}
+  .filkort .fk-tx small{color:var(--muted);font-size:12.5px}
+  .filkort .fk-dl{flex:none;font-weight:700;font-size:14px;background:var(--ink);
+    color:#fff;border-radius:999px;padding:8px 14px;white-space:nowrap}
 
   /* admin-liste */
   .adminlist{display:flex;flex-direction:column;gap:10px}
@@ -638,6 +669,16 @@
         <button class="btn" id="addAct" type="button">+ Legg til aktivitet</button>
       </div>
 
+      <div class="field" style="margin-top:6px">
+        <label>Utskriftsmateriell <span class="hint">– PDF-ar andre lærere kan laste ned og skrive ut</span></label>
+        <div id="fileList"></div>
+        <input id="f_fileInput" type="file" accept="application/pdf" multiple style="display:none">
+        <button class="btn" id="addFile" type="button">+ Last opp PDF</button>
+        <div class="hint" id="fileHint" style="margin-top:6px;display:none;color:#B23A2E">
+          Opplasting krever at Firebase Storage er skrudd på. Se OPPSETT-guide.md.
+        </div>
+      </div>
+
       <div style="display:flex;gap:10px;justify-content:space-between;margin-top:22px;flex-wrap:wrap">
         <button class="btn warn" id="deleteThing" style="display:none">Slett tingen</button>
         <div style="display:flex;gap:10px;margin-left:auto">
@@ -707,6 +748,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 
 <script>
 /* =================================================================
@@ -780,12 +822,13 @@ const DEMO = [];   // tomt – siden starter blank. Ting kommer fra Firebase.
 /* =================================================================
    STATE + DATABASE
    ================================================================= */
-let db=null, demoMode=false, isAdmin=false, canAdd=false;
+let db=null, storage=null, demoMode=false, isAdmin=false, canAdd=false;
 let items=[];            // alle ting
 let activeFag="*";       // valgt fag-filter
 let query="";            // søk
 let editingId=null;      // id som blir redigert
 let formBilde="";        // bilde (data-URL) i skjemaet
+let formFiler=[];        // utskriftsmateriell (PDF-ar lasta opp til Storage)
 let aiAutoKjort=false;   // har auto-AI kjørt for dette skjemaet?
 
 function $(s,r=document){return r.querySelector(s)}
@@ -793,12 +836,24 @@ function $$(s,r=document){return [...r.querySelectorAll(s)]}
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function toast(m,ms){const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),ms||2200)}
 
+/* lasteskjerm – vises til første svar frå databasen er inne */
+function showLoading(){
+  const root=$("#catalog");
+  if(root) root.innerHTML=`<div class="loading">
+    <div class="spin"></div>
+    <strong>Tørker støv og henter fram alle ting …</strong>
+    <span>Et lite øyeblikk.</span>
+  </div>`;
+}
+
 function initData(){
   const configured = firebaseConfig.apiKey && firebaseConfig.apiKey!=="DIN_API_KEY";
   if(configured){
+    showLoading();
     try{
       firebase.initializeApp(firebaseConfig);
       db=firebase.firestore();
+      try{ storage=firebase.storage(); }catch(_){ storage=null; }
       db.collection(COLLECTION).orderBy("navn").onSnapshot(snap=>{
         items=snap.docs.map(d=>({id:d.id,...d.data()}));
         render();
@@ -896,6 +951,7 @@ function cardHTML(it, hidden){
       <div class="meta">
         ${(it.fag||[]).slice(0,2).map(f=>`<span>${esc(f)}</span>`).join('')}
         ${it.plassering?`<span>· ${esc(it.plassering)}</span>`:''}
+        ${(it.filer&&it.filer.length)?`<span>· 📄 ${it.filer.length}</span>`:''}
       </div>
     </div>
   </button>`;
@@ -985,6 +1041,11 @@ function openDetail(id,push=true){
     </div>
     ${(it.tema&&it.tema.length)?`<div class="temahead">Brukes til</div>
       <div class="temarad">${it.tema.map(t=>`<span class="tematag">${esc(t)}</span>`).join('')}</div>`:''}
+    ${(it.filer&&it.filer.length)?`<div class="temahead">📄 Utskriftsmateriell</div>
+      <div class="filrad">${it.filer.map(f=>`<a class="filkort" href="${esc(f.url)}" target="_blank" rel="noopener">
+        <span class="fk-ic">📄</span>
+        <span class="fk-tx"><strong>${esc(f.tittel||f.navn||'PDF')}</strong><small>PDF${f.storrelse?` · ${Math.round(f.storrelse/1024)} kB`:''}</small></span>
+        <span class="fk-dl">Last ned ↓</span></a>`).join('')}</div>`:''}
     <h3 class="acts-head">Forslag til aktiviteter</h3>
     ${acts.length?`<div class="acts">${acts.map((a,i)=>`
       <div class="act" style="--cc:${c}">
@@ -1171,6 +1232,54 @@ function fagPicker(selected=[]){
     $("#addFag").before(b);
   };
 }
+/* ---------- utskriftsmateriell (PDF til Firebase Storage) ---------- */
+function slettLagretFil(path){
+  if(path && storage){ try{ storage.ref().child(path).delete(); }catch(_){} }
+}
+function renderFileList(){
+  const wrap=$("#fileList"); if(!wrap) return;
+  wrap.innerHTML=formFiler.map((f,i)=>`
+    <div class="fil-edit" data-i="${i}">
+      <div class="top">
+        <span class="fil-ic">📄</span>
+        <input class="f_tittel" placeholder="Tittel på materiellet" value="${esc(f.tittel||'')}">
+        <button type="button" class="delrow" data-i="${i}">Fjern</button>
+      </div>
+      <div class="fil-meta">${esc(f.navn||'')}${f.storrelse?` · ${Math.round(f.storrelse/1024)} kB`:''}${f.url?'':' · <em>laster opp …</em>'}</div>
+    </div>`).join('');
+  $$("#fileList .f_tittel").forEach((inp,i)=>inp.oninput=()=>{ if(formFiler[i]) formFiler[i].tittel=inp.value; });
+  $$("#fileList .delrow").forEach(b=>b.onclick=()=>{
+    const i=+b.dataset.i, f=formFiler[i];
+    if(f&&f.path) slettLagretFil(f.path);
+    formFiler.splice(i,1); renderFileList();
+  });
+}
+async function handterFilval(files){
+  if(!storage){ $("#fileHint").style.display="block";
+    toast("Opplasting krever at Firebase Storage er skrudd på – se guiden.",6000); return; }
+  for(const file of files){
+    if(file.type!=="application/pdf" && !/\.pdf$/i.test(file.name)){ toast("Bare PDF-filer kan lastes opp"); continue; }
+    if(file.size>20*1024*1024){ toast("PDF-en er for stor (maks 20 MB)"); continue; }
+    const entry={tittel:file.name.replace(/\.pdf$/i,""), navn:file.name, storrelse:file.size, url:"", path:""};
+    formFiler.push(entry); renderFileList();
+    try{
+      const safe=file.name.replace(/[^\w.\-]+/g,"_");
+      const path=`materiell/${Date.now()}_${Math.random().toString(36).slice(2,7)}_${safe}`;
+      const snap=await storage.ref().child(path).put(file,{contentType:"application/pdf"});
+      entry.url=await snap.ref.getDownloadURL();
+      entry.path=path;
+      renderFileList(); toast("PDF lastet opp ✓");
+    }catch(e){
+      console.error("Opplasting feila:", e);
+      formFiler=formFiler.filter(x=>x!==entry); renderFileList();
+      $("#fileHint").style.display="block";
+      const code=(e&&e.code)||"";
+      if(/unauthorized|unauthenticated|permission/.test(code)) toast("Storage avviste opplasting – sjekk lagringsreglene (se guiden).",7000);
+      else toast("Fikk ikke lastet opp – er Storage skrudd på? Se guiden.",7000);
+    }
+  }
+}
+
 function actRow(a={}){
   const div=document.createElement("div");
   div.className="act-edit";
@@ -1199,6 +1308,9 @@ function openForm(id){
   formBilde=it?.bilde||"";
   oppdaterBildePrev();
   settBildeStatus(formBilde?("Bilde lagret · "+Math.round(dataUrlBytes(formBilde)/1024)+" kB"):"");
+  formFiler=(it?.filer||[]).map(f=>({...f}));
+  renderFileList();
+  $("#fileHint").style.display="none";
   aiAutoKjort=false;
   syncAiBox();
   openOverlay("formOverlay");
@@ -1215,11 +1327,15 @@ function readForm(){
     tid:d.querySelector(".a_tid").value.trim()
   })).filter(a=>a.tittel);
   const tema=$("#f_tema").value.split(",").map(t=>t.trim()).filter(Boolean);
+  const filer=formFiler.filter(f=>f.url).map(f=>({
+    tittel:(f.tittel||f.navn||"PDF").trim(),
+    navn:f.navn||"", url:f.url, path:f.path||"", storrelse:f.storrelse||0
+  }));
   return {
     navn:$("#f_navn").value.trim(),
     ikon:$("#f_ikon").value.trim()||"📦",
     bilde:formBilde||"",
-    fag, aktivitetar, tema,
+    fag, aktivitetar, tema, filer,
     skildring:$("#f_skildring").value.trim(),
     plassering:$("#f_plassering").value.trim(),
     tal:$("#f_tal").value.trim()
@@ -1241,6 +1357,8 @@ $("#openAdmin").onclick=enterAdmin;
 $("#publicAdd").onclick=requestAdd;
 $("#addThing").onclick=()=>openForm(null);
 $("#addAct").onclick=()=>$("#actList").appendChild(actRow());
+$("#addFile").onclick=()=>$("#f_fileInput").click();
+$("#f_fileInput").onchange=e=>{ const fs=[...e.target.files]; e.target.value=""; handterFilval(fs); };
 $("#printLabels").onclick=()=>{buildLabels();openOverlay("etikettOverlay")};
 $("#doPrint").onclick=()=>{document.body.classList.add("printing-labels");window.print();setTimeout(()=>document.body.classList.remove("printing-labels"),500)};
 
@@ -1426,6 +1544,7 @@ $("#deleteThing").onclick=async()=>{
   if(!editingId)return;
   const it=items.find(x=>x.id===editingId);
   if(!confirm(`Slette «${it?.navn}»? Dette kan ikke angres.`))return;
+  (it?.filer||[]).forEach(f=>slettLagretFil(f.path));   // rydd opp PDF-ar i Storage
   const id=editingId;
   const wasAdmin=$("#adminOverlay").classList.contains("open");
   closeOverlay($("#formOverlay"));               // lukk med ein gong
