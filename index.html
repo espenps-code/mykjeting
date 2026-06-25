@@ -110,9 +110,11 @@
   .toolbar{
     position:sticky;top:0;z-index:20;
     display:flex;gap:10px;align-items:center;flex-wrap:wrap;
-    padding:62px 0 16px;margin-bottom:8px;
+    padding:16px 0 16px;margin-bottom:8px;
     background:linear-gradient(var(--paper) 72%, transparent);
   }
+  .mattoolbar{align-items:center;gap:12px;flex-wrap:wrap;padding:16px 0 16px;margin-bottom:8px}
+  .mattoolbar .mat-intro{color:var(--muted);font-size:14px;margin:0;flex:1;min-width:200px}
   .chips{display:flex;gap:8px;flex-wrap:wrap;flex:1;min-width:0}
   .chip{
     border:1px solid var(--line);background:var(--card);color:var(--ink);
@@ -239,6 +241,18 @@
 
   /* ---------- DETALJVISNING (det QR-en åpner) ---------- */
   .detail{display:none;animation:fade .25s ease}
+  /* faner + bytte mellom ting og utskriftsmateriell */
+  .tabs{display:flex;gap:8px;padding-top:62px;flex-wrap:wrap}
+  .tab{border:1px solid var(--line);background:var(--card);color:var(--muted);
+    font:inherit;font-weight:700;font-size:15px;padding:10px 18px;border-radius:999px;
+    cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+  .tab[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .mattoolbar{display:none}
+  #materiell{display:none}
+  body.vis-materiell .toolbar,body.vis-materiell #catalog{display:none}
+  body.vis-materiell .mattoolbar{display:flex}
+  body.vis-materiell #materiell{display:block}
+  body.view-detail .tabs,body.view-detail .mattoolbar,body.view-detail #materiell{display:none}
   body.view-detail .toolbar,body.view-detail #catalog{display:none}
   body.view-detail .detail{display:block;padding-top:62px}
   @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
@@ -367,6 +381,26 @@
   .filkort .fk-dl{flex:none;font-weight:700;font-size:14px;background:var(--ink);
     color:#fff;border-radius:999px;padding:8px 14px;white-space:nowrap}
 
+  /* dra-og-slipp-sone for filopplasting */
+  .dropzone{display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+    border:1.5px dashed var(--line);border-radius:13px;padding:14px;background:#FBFAF5;margin-top:4px}
+  .dropzone.dragover{border-color:#E8A23D;background:#FBF3E2}
+  .dropzone .dz-txt{color:var(--muted);font-size:14px}
+
+  /* utskriftsmateriell-visning (eigen fane) */
+  .mat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
+  .mat-card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+    padding:18px;box-shadow:var(--shadow);border-top:7px solid #C7803A}
+  .mat-top{display:flex;gap:14px;align-items:flex-start}
+  .mat-ic{width:52px;height:52px;border-radius:14px;font-size:26px;flex:none;
+    display:flex;align-items:center;justify-content:center;
+    background:color-mix(in srgb,#C7803A 16%, white);border:1px solid color-mix(in srgb,#C7803A 26%, white)}
+  .mat-h{flex:1;min-width:0}
+  .mat-h h3{font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:19px;margin:0 0 4px;letter-spacing:-.01em}
+  .mat-h p{color:var(--muted);font-size:14px;margin:0}
+  .mat-card .temarad{margin:13px 0 10px}
+  .mat-card .filrad{margin:6px 0 0}
+
   /* admin-liste */
   .adminlist{display:flex;flex-direction:column;gap:10px}
   .adminrow{
@@ -423,7 +457,7 @@
   @media(max-width:560px){
     .row2{grid-template-columns:1fr}
     .etikett-ark{grid-template-columns:1fr}
-    .toolbar{padding-top:52px}
+    .tabs{padding-top:52px}
     body.view-detail .detail{padding-top:52px}
   }
   @media (prefers-reduced-motion: reduce){
@@ -433,7 +467,7 @@
   /* ---------- UTSKRIFT ---------- */
   @media print{
     body{background:#fff}
-    .banner,.hero,.toolbar,#toast,footer,.backlink,.detail-actions,.admin-btn{display:none!important}
+    .banner,.hero,.toolbar,.tabs,.mattoolbar,#toast,footer,.backlink,.detail-actions,.admin-btn{display:none!important}
     body.printing-labels > *:not(#etikettOverlay){display:none!important}
     body.printing-labels #etikettOverlay{position:static;display:block;background:#fff;padding:0;backdrop-filter:none}
     body.printing-labels #etikettOverlay .sheet{box-shadow:none;margin:0;max-width:none;background:#fff}
@@ -570,6 +604,12 @@
 </header>
 
 <main>
+  <!-- fane-velger: ting / utskriftsmateriell -->
+  <div class="tabs" id="tabs">
+    <button class="tab" id="tabTing" type="button" aria-pressed="true">📦 Ting</button>
+    <button class="tab" id="tabMat" type="button" aria-pressed="false">📄 Utskriftsmateriell</button>
+  </div>
+
   <!-- verktøylinje: fag-filter + admin -->
   <div class="toolbar" id="toolbar">
     <div class="chips" id="chips"></div>
@@ -585,6 +625,18 @@
 
   <!-- katalog -->
   <section id="catalog"></section>
+
+  <!-- verktøylinje for utskriftsmateriell -->
+  <div class="mattoolbar" id="mattoolbar">
+    <p class="mat-intro">Ferdige PDF-ar til nedlasting og utskrift – delt av lærere.</p>
+    <button class="addbtn" id="matAdd" title="Legg til utskriftsmateriell">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      Legg til utskriftsmateriell
+    </button>
+  </div>
+
+  <!-- liste over utskriftsmateriell -->
+  <section id="materiell"></section>
 
   <!-- detaljvising (opnast av QR / klikk) -->
   <section class="detail" id="detail"></section>
@@ -681,8 +733,11 @@
       <div class="field" style="margin-top:6px">
         <label>Utskriftsmateriell <span class="hint">– PDF-ar andre lærere kan laste ned og skrive ut</span></label>
         <div id="fileList"></div>
-        <input id="f_fileInput" type="file" accept="application/pdf" multiple style="display:none">
-        <button class="btn" id="addFile" type="button">+ Last opp PDF</button>
+        <div class="dropzone" id="fileDrop">
+          <input id="f_fileInput" type="file" accept="application/pdf" multiple style="display:none">
+          <span class="dz-txt">Dra PDF-ar hit, eller</span>
+          <button class="btn" id="addFile" type="button">+ Last opp PDF</button>
+        </div>
         <div class="hint" id="fileHint" style="margin-top:6px;display:none;color:#B23A2E">
           Opplasting krever at Firebase Storage er skrudd på. Se OPPSETT-guide.md.
         </div>
@@ -693,6 +748,50 @@
         <div style="display:flex;gap:10px;margin-left:auto">
           <button class="btn" data-close>Avbryt</button>
           <button class="btn primary" id="saveThing">Lagre</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SKJEMA: UTSKRIFTSMATERIELL (enkelt – berre PDF) ===== -->
+<div class="overlay" id="matFormOverlay" aria-hidden="true">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h3 id="matFormTitle">Nytt utskriftsmateriell</h3>
+      <button class="xbtn" data-close>×</button>
+    </div>
+    <div class="sheet-body">
+      <div class="field">
+        <label>Tittel</label>
+        <input id="m_navn" placeholder="f.eks. Brøk-oppgaver 5. trinn">
+      </div>
+      <div class="field">
+        <label>Beskrivelse</label>
+        <textarea id="m_skildring" placeholder="Hva er dette, og hva passer det til?"></textarea>
+      </div>
+      <div class="field">
+        <label>Tema / søkeord <span class="hint">– så lærere finner det i søk</span></label>
+        <input id="m_tema" placeholder="f.eks. brøk, oppgaver, 5. trinn">
+        <div class="hint" style="margin-top:5px">Skill med komma.</div>
+      </div>
+      <div class="field" style="margin-top:6px">
+        <label>PDF-filer</label>
+        <div id="matFileList"></div>
+        <div class="dropzone" id="matFileDrop">
+          <input id="m_fileInput" type="file" accept="application/pdf" multiple style="display:none">
+          <span class="dz-txt">Dra PDF-ar hit, eller</span>
+          <button class="btn" id="matAddFile" type="button">+ Last opp PDF</button>
+        </div>
+        <div class="hint" id="matFileHint" style="margin-top:6px;display:none;color:#B23A2E">
+          Opplasting krever at Firebase Storage er skrudd på. Se OPPSETT-guide.md.
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:space-between;margin-top:22px;flex-wrap:wrap">
+        <button class="btn warn" id="matDelete" style="display:none">Slett</button>
+        <div style="display:flex;gap:10px;margin-left:auto">
+          <button class="btn" data-close>Avbryt</button>
+          <button class="btn primary" id="matSave">Lagre</button>
         </div>
       </div>
     </div>
@@ -838,6 +937,9 @@ let query="";            // søk
 let editingId=null;      // id som blir redigert
 let formBilde="";        // bilde (data-URL) i skjemaet
 let formFiler=[];        // utskriftsmateriell (PDF-ar lasta opp til Storage)
+let filListeId="fileList";   // kva fil-liste opplasting skal teikne i (ting- vs materiell-skjema)
+let filHintId="fileHint";    // kva feilmelding-hint som høyrer til opne skjema
+let aktivVisning="ting";     // "ting" eller "materiell"
 let aiAutoKjort=false;   // har auto-AI kjørt for dette skjemaet?
 
 function $(s,r=document){return r.querySelector(s)}
@@ -865,7 +967,7 @@ function initData(){
       try{ storage=firebase.storage(); }catch(_){ storage=null; }
       db.collection(COLLECTION).orderBy("navn").onSnapshot(snap=>{
         items=snap.docs.map(d=>({id:d.id,...d.data()}));
-        render();
+        render(); renderMateriell();
         if(items.length===0) maybeSeedHint();
       },err=>{
         console.error(err);
@@ -881,7 +983,7 @@ function startDemo(){
   demoMode=true;
   $("#demoBanner").style.display="block";
   items=DEMO.map(x=>({...x}));
-  render();
+  render(); renderMateriell();
 }
 function maybeSeedHint(){
   if(!isAdmin) return;
@@ -893,14 +995,14 @@ async function saveItem(data,id){
   if(demoMode){
     if(id){const i=items.findIndex(x=>x.id===id); if(i>-1) items[i]={...items[i],...data}}
     else items.push({id:"l"+Date.now(),...data});
-    render(); return;
+    render(); renderMateriell(); return;
   }
   data.oppdatert=firebase.firestore.FieldValue.serverTimestamp();
   if(id) await db.collection(COLLECTION).doc(id).set(data,{merge:true});
   else await db.collection(COLLECTION).add(data);
 }
 async function deleteItem(id){
-  if(demoMode){items=items.filter(x=>x.id!==id);render();return}
+  if(demoMode){items=items.filter(x=>x.id!==id);render();renderMateriell();return}
   await db.collection(COLLECTION).doc(id).delete();
 }
 
@@ -968,11 +1070,12 @@ function cardHTML(it, hidden){
 
 function render(){
   chipRow();
-  $("#footCount").textContent = items.length+" ting"+(demoMode?" (demo)":"");
-  const list=items.filter(matches);
+  const ting=items.filter(i=>i.type!=='materiell');
+  $("#footCount").textContent = ting.length+" ting"+(demoMode?" (demo)":"");
+  const list=ting.filter(matches);
   const root=$("#catalog");
 
-  if(items.length===0){
+  if(ting.length===0){
     root.innerHTML=`<div class="empty"><div class="big">📦</div>
       <strong>Ingen ting ennå.</strong><br>Trykk «+ Legg til ting» og legg inn det første materiellet.</div>`;
     return;
@@ -1012,6 +1115,61 @@ function render(){
     b.remove();
   });
   $$(".card",root).forEach(b=>b.onclick=()=>openDetail(b.dataset.id));
+}
+
+/* =================================================================
+   UTSKRIFTSMATERIELL – EIGEN FANE
+   ================================================================= */
+function matCardHTML(it){
+  const filer=(it.filer||[]);
+  return `<div class="mat-card">
+    <div class="mat-top">
+      <div class="mat-ic">📄</div>
+      <div class="mat-h">
+        <h3>${esc(it.navn)}</h3>
+        ${it.skildring?`<p>${esc(it.skildring)}</p>`:''}
+      </div>
+      <button class="iconbtn" data-medit="${it.id}" title="Rediger">✏️</button>
+    </div>
+    ${(it.tema&&it.tema.length)?`<div class="temarad">${it.tema.map(t=>`<span class="tematag">${esc(t)}</span>`).join('')}</div>`:''}
+    ${filer.length?`<div class="filrad">${filer.map(f=>`<a class="filkort" href="${esc(f.url)}" target="_blank" rel="noopener">
+      <span class="fk-ic">📄</span>
+      <span class="fk-tx"><strong>${esc(f.tittel||f.navn||'PDF')}</strong><small>PDF${f.storrelse?` · ${Math.round(f.storrelse/1024)} kB`:''}</small></span>
+      <span class="fk-dl">Last ned ↓</span></a>`).join('')}</div>`
+      :`<div class="empty" style="padding:18px;margin-top:10px">Ingen filer lagt inn ennå.</div>`}
+  </div>`;
+}
+function renderMateriell(){
+  const root=$("#materiell"); if(!root) return;
+  const alle=items.filter(i=>i.type==='materiell');
+  if(alle.length===0){
+    root.innerHTML=`<div class="empty"><div class="big">📄</div>
+      <strong>Ingen utskriftsmateriell ennå.</strong><br>Trykk «+ Legg til utskriftsmateriell» og last opp den første PDF-en.</div>`;
+    return;
+  }
+  let list=alle;
+  if(query){
+    const qOrd=ordliste(query);
+    list=alle.filter(it=>{
+      const hay=[it.navn,it.skildring,(it.tema||[]).join(" ")].join(" ").toLowerCase();
+      return qOrd.every(qw=>hay.includes(qw));
+    });
+  }
+  if(list.length===0){
+    root.innerHTML=`<div class="empty"><div class="big">🔍</div>
+      <strong>Fant ingen treff.</strong><br>Prøv et annet søkeord.</div>`;
+    return;
+  }
+  root.innerHTML=`<div class="mat-grid">${list.map(matCardHTML).join('')}</div>`;
+  $$("[data-medit]",root).forEach(b=>b.onclick=()=>requestMatEdit(b.dataset.medit));
+}
+function byttVisning(v){
+  aktivVisning=v;
+  document.body.classList.toggle("vis-materiell", v==='materiell');
+  $("#tabTing").setAttribute("aria-pressed", v==='ting');
+  $("#tabMat").setAttribute("aria-pressed", v==='materiell');
+  if(v==='materiell') renderMateriell(); else render();
+  window.scrollTo({top:0,behavior:'instant'in window?'instant':'auto'});
 }
 
 /* =================================================================
@@ -1186,6 +1344,36 @@ function requestEdit(id){
   });
 }
 
+/* «Legg til / rediger utskriftsmateriell» – alle med ADD_PIN (eller admin) */
+function requestMatAdd(){
+  if(isAdmin||canAdd){openMatForm(null);return}
+  askCode({
+    title:"Legg til utskriftsmateriell", icon:"➕",
+    hint:"Skriv inn koden for å legge til.",
+    onValid:code=>{
+      if(code===ADD_PIN||(ADMIN_PIN&&code===ADMIN_PIN)){
+        canAdd=true; if(ADMIN_PIN&&code===ADMIN_PIN)isAdmin=true;
+        openMatForm(null); return true;
+      }
+      return false;
+    }
+  });
+}
+function requestMatEdit(id){
+  if(isAdmin||canAdd){openMatForm(id);return}
+  askCode({
+    title:"Rediger utskriftsmateriell", icon:"✏️",
+    hint:"Skriv inn koden for å redigere.",
+    onValid:code=>{
+      if(code===ADD_PIN||(ADMIN_PIN&&code===ADMIN_PIN)){
+        canAdd=true; if(ADMIN_PIN&&code===ADMIN_PIN)isAdmin=true;
+        openMatForm(id); return true;
+      }
+      return false;
+    }
+  });
+}
+
 /* «Administrer» – krev privat admin-kode (rediger/slett/QR) */
 function enterAdmin(){
   if(isAdmin){openAdmin();return}
@@ -1208,8 +1396,9 @@ function enterAdmin(){
 }
 function openAdmin(){
   const root=$("#adminList");
-  if(items.length===0){root.innerHTML=`<div class="empty" style="padding:30px">Ingen ting ennå. Trykk «+ Legg til ting».</div>`}
-  else root.innerHTML=items.map(it=>{
+  const ting=items.filter(i=>i.type!=='materiell');
+  if(ting.length===0){root.innerHTML=`<div class="empty" style="padding:30px">Ingen ting ennå. Trykk «+ Legg til ting».</div>`}
+  else root.innerHTML=ting.map(it=>{
     const c=fargeFor((it.fag||[])[0]||"");
     return `<div class="adminrow" style="--cc:${c}">
       <div class="ic">${esc(it.ikon||"📦")}</div>
@@ -1245,7 +1434,7 @@ function slettLagretFil(path){
   if(path && storage){ try{ storage.ref().child(path).delete(); }catch(_){} }
 }
 function renderFileList(){
-  const wrap=$("#fileList"); if(!wrap) return;
+  const wrap=$("#"+filListeId); if(!wrap) return;
   wrap.innerHTML=formFiler.map((f,i)=>`
     <div class="fil-edit" data-i="${i}">
       <div class="top">
@@ -1255,15 +1444,15 @@ function renderFileList(){
       </div>
       <div class="fil-meta">${esc(f.navn||'')}${f.storrelse?` · ${Math.round(f.storrelse/1024)} kB`:''}${f.url?'':' · <em>laster opp …</em>'}</div>
     </div>`).join('');
-  $$("#fileList .f_tittel").forEach((inp,i)=>inp.oninput=()=>{ if(formFiler[i]) formFiler[i].tittel=inp.value; });
-  $$("#fileList .delrow").forEach(b=>b.onclick=()=>{
+  $$("#"+filListeId+" .f_tittel").forEach((inp,i)=>inp.oninput=()=>{ if(formFiler[i]) formFiler[i].tittel=inp.value; });
+  $$("#"+filListeId+" .delrow").forEach(b=>b.onclick=()=>{
     const i=+b.dataset.i, f=formFiler[i];
     if(f&&f.path) slettLagretFil(f.path);
     formFiler.splice(i,1); renderFileList();
   });
 }
 async function handterFilval(files){
-  if(!storage){ $("#fileHint").style.display="block";
+  if(!storage){ $("#"+filHintId).style.display="block";
     toast("Opplasting krever at Firebase Storage er skrudd på – se guiden.",6000); return; }
   for(const file of files){
     if(file.type!=="application/pdf" && !/\.pdf$/i.test(file.name)){ toast("Bare PDF-filer kan lastes opp"); continue; }
@@ -1280,7 +1469,7 @@ async function handterFilval(files){
     }catch(e){
       console.error("Opplasting feila:", e);
       formFiler=formFiler.filter(x=>x!==entry); renderFileList();
-      $("#fileHint").style.display="block";
+      $("#"+filHintId).style.display="block";
       const code=(e&&e.code)||"";
       if(/unauthorized|unauthenticated|permission/.test(code)) toast("Storage avviste opplasting – sjekk lagringsreglene (se guiden).",7000);
       else toast("Fikk ikke lastet opp – er Storage skrudd på? Se guiden.",7000);
@@ -1316,6 +1505,7 @@ function openForm(id){
   formBilde=it?.bilde||"";
   oppdaterBildePrev();
   settBildeStatus(formBilde?("Bilde lagret · "+Math.round(dataUrlBytes(formBilde)/1024)+" kB"):"");
+  filListeId="fileList"; filHintId="fileHint";
   formFiler=(it?.filer||[]).map(f=>({...f}));
   renderFileList();
   $("#fileHint").style.display="none";
@@ -1350,6 +1540,37 @@ function readForm(){
   };
 }
 
+/* ---------- enkelt skjema for utskriftsmateriell ---------- */
+function openMatForm(id){
+  editingId=id||null;
+  const it=id?items.find(x=>x.id===id):null;
+  $("#matFormTitle").textContent=it?"Rediger utskriftsmateriell":"Nytt utskriftsmateriell";
+  $("#m_navn").value=it?.navn||"";
+  $("#m_skildring").value=it?.skildring||"";
+  $("#m_tema").value=(it?.tema||[]).join(", ");
+  filListeId="matFileList"; filHintId="matFileHint";
+  formFiler=(it?.filer||[]).map(f=>({...f}));
+  renderFileList();
+  $("#matFileHint").style.display="none";
+  $("#matDelete").style.display=(it&&isAdmin)?"inline-flex":"none";
+  openOverlay("matFormOverlay");
+  const ov=$("#matFormOverlay"); ov.scrollTop=0;
+  requestAnimationFrame(()=>{ov.scrollTop=0});
+}
+function readMatForm(){
+  const tema=$("#m_tema").value.split(",").map(t=>t.trim()).filter(Boolean);
+  const filer=formFiler.filter(f=>f.url).map(f=>({
+    tittel:(f.tittel||f.navn||"PDF").trim(),
+    navn:f.navn||"", url:f.url, path:f.path||"", storrelse:f.storrelse||0
+  }));
+  return {
+    type:"materiell",
+    navn:$("#m_navn").value.trim(),
+    skildring:$("#m_skildring").value.trim(),
+    tema, filer
+  };
+}
+
 /* =================================================================
    OVERLAY-HJELP + KNAPPAR
    ================================================================= */
@@ -1367,6 +1588,48 @@ $("#addThing").onclick=()=>openForm(null);
 $("#addAct").onclick=()=>$("#actList").appendChild(actRow());
 $("#addFile").onclick=()=>$("#f_fileInput").click();
 $("#f_fileInput").onchange=e=>{ const fs=[...e.target.files]; e.target.value=""; handterFilval(fs); };
+
+/* faner + utskriftsmateriell */
+$("#tabTing").onclick=()=>byttVisning('ting');
+$("#tabMat").onclick=()=>byttVisning('materiell');
+$("#matAdd").onclick=requestMatAdd;
+$("#matAddFile").onclick=()=>$("#m_fileInput").click();
+$("#m_fileInput").onchange=e=>{ const fs=[...e.target.files]; e.target.value=""; handterFilval(fs); };
+$("#matSave").onclick=async()=>{
+  const data=readMatForm();
+  if(!data.navn){toast("Materiellet trenger en tittel");return}
+  const id=editingId;
+  closeOverlay($("#matFormOverlay"));
+  toast(id?"Lagret endringer":"Utskriftsmateriell lagt til");
+  try{ await saveItem(data,id); }
+  catch(e){ console.error("Lagring feila:", e); openOverlay("matFormOverlay");
+    toast("Lagring feilet: "+(e?.code||e?.message||"ukjent feil"),8000); }
+};
+$("#matDelete").onclick=async()=>{
+  if(!editingId)return;
+  const it=items.find(x=>x.id===editingId);
+  if(!confirm(`Slette «${it?.navn}»? Dette kan ikke angres.`))return;
+  (it?.filer||[]).forEach(f=>slettLagretFil(f.path));
+  const id=editingId;
+  closeOverlay($("#matFormOverlay"));
+  toast("Slettet");
+  try{ await deleteItem(id); }
+  catch(e){ console.error("Sletting feila:", e); toast("Sletting feilet: "+(e?.code||e?.message||"ukjent feil"),8000); }
+};
+
+/* dra-og-slipp av PDF-ar */
+function koblDropzone(zone){
+  if(!zone||zone._dz) return; zone._dz=true;
+  ["dragenter","dragover"].forEach(ev=>zone.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();zone.classList.add("dragover")}));
+  ["dragleave","drop"].forEach(ev=>zone.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();
+    if(ev==="dragleave"&&zone.contains(e.relatedTarget))return; zone.classList.remove("dragover")}));
+  zone.addEventListener("drop",e=>{ const fs=[...((e.dataTransfer&&e.dataTransfer.files)||[])].filter(Boolean); if(fs.length) handterFilval(fs); });
+}
+koblDropzone($("#fileDrop"));
+koblDropzone($("#matFileDrop"));
+// hindre at PDF sleppt utanfor sona opnar fila i nettlesaren
+window.addEventListener("dragover",e=>e.preventDefault());
+window.addEventListener("drop",e=>e.preventDefault());
 $("#printLabels").onclick=()=>{buildLabels();openOverlay("etikettOverlay")};
 $("#doPrint").onclick=()=>{document.body.classList.add("printing-labels");window.print();setTimeout(()=>document.body.classList.remove("printing-labels"),500)};
 
@@ -1566,9 +1829,10 @@ $("#deleteThing").onclick=async()=>{
 
 /* søk */
 const si=$("#search"),cb=$("#clearSearch");
+function renderAktiv(){ if(aktivVisning==='materiell') renderMateriell(); else render(); }
 si.addEventListener("input",()=>{query=si.value.trim();cb.classList.toggle("show",!!query);
-  if(document.body.classList.contains("view-detail"))closeDetail();render()});
-cb.onclick=()=>{si.value="";query="";cb.classList.remove("show");render();si.focus()};
+  if(document.body.classList.contains("view-detail"))closeDetail();renderAktiv()});
+cb.onclick=()=>{si.value="";query="";cb.classList.remove("show");renderAktiv();si.focus()};
 
 /* =================================================================
    OPPSTART
