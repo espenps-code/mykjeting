@@ -390,7 +390,9 @@
   /* utskriftsmateriell-visning (eigen fane) */
   .mat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
   .mat-card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
-    padding:18px;box-shadow:var(--shadow);border-top:7px solid #C7803A}
+    padding:18px;box-shadow:var(--shadow);border-top:7px solid var(--cc,#C7803A)}
+  .mat-photo{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:12px;
+    margin-bottom:14px;background:#F2EFE7;display:block}
   .mat-top{display:flex;gap:14px;align-items:flex-start}
   .mat-ic{width:52px;height:52px;border-radius:14px;font-size:26px;flex:none;
     display:flex;align-items:center;justify-content:center;
@@ -398,7 +400,8 @@
   .mat-h{flex:1;min-width:0}
   .mat-h h3{font-family:'Bricolage Grotesque',sans-serif;font-weight:700;font-size:19px;margin:0 0 4px;letter-spacing:-.01em}
   .mat-h p{color:var(--muted);font-size:14px;margin:0}
-  .mat-card .temarad{margin:13px 0 10px}
+  .mat-card .tags{margin-top:13px}
+  .mat-card .temarad{margin:10px 0 10px}
   .mat-card .filrad{margin:6px 0 0}
 
   /* admin-liste */
@@ -771,6 +774,22 @@
         <textarea id="m_skildring" placeholder="Hva er dette, og hva passer det til?"></textarea>
       </div>
       <div class="field">
+        <label>Fag <span class="hint">– velg ett eller flere</span></label>
+        <div class="fagpick" id="m_fagpick"></div>
+      </div>
+      <div class="field">
+        <label>Bilde <span class="hint">– vises på kortet (valgfritt)</span></label>
+        <div class="imgfield">
+          <img id="m_bildePrev" class="imgprev" alt="">
+          <input id="m_bildeFile" type="file" accept="image/*" style="display:none">
+          <div class="imgbtns">
+            <button class="btn" type="button" id="m_bildePick">Velg bilde</button>
+            <button class="btn" type="button" id="m_bildeClear" style="display:none">Fjern bilde</button>
+            <div class="imgstatus" id="m_bildeStatus"></div>
+          </div>
+        </div>
+      </div>
+      <div class="field">
         <label>Tema / søkeord <span class="hint">– så lærere finner det i søk</span></label>
         <input id="m_tema" placeholder="f.eks. brøk, oppgaver, 5. trinn">
         <div class="hint" style="margin-top:5px">Skill med komma.</div>
@@ -939,6 +958,7 @@ let formBilde="";        // bilde (data-URL) i skjemaet
 let formFiler=[];        // utskriftsmateriell (PDF-ar lasta opp til Storage)
 let filListeId="fileList";   // kva fil-liste opplasting skal teikne i (ting- vs materiell-skjema)
 let filHintId="fileHint";    // kva feilmelding-hint som høyrer til opne skjema
+let bildePrevId="f_bildePrev", bildeClearId="f_bildeClear", bildeStatusId="f_bildeStatus"; // bilde-felt for opne skjema
 let aktivVisning="ting";     // "ting" eller "materiell"
 let aiAutoKjort=false;   // har auto-AI kjørt for dette skjemaet?
 
@@ -1036,7 +1056,7 @@ function matches(it){
 
 function chipRow(){
   const wrap=$("#chips");
-  const fagBrukt=[...new Set(items.flatMap(i=>i.fag||[]))];
+  const fagBrukt=[...new Set(items.filter(i=>i.type!=='materiell').flatMap(i=>i.fag||[]))];
   const ordna=[...FAGORDEN.filter(f=>fagBrukt.includes(f)),
                ...fagBrukt.filter(f=>!FAGORDEN.includes(f)).sort()];
   let html=`<button class="chip" data-fag="*" aria-pressed="${activeFag==="*"}">Alle fag</button>`;
@@ -1122,7 +1142,9 @@ function render(){
    ================================================================= */
 function matCardHTML(it){
   const filer=(it.filer||[]);
-  return `<div class="mat-card">
+  const c=fargeFor((it.fag||[])[0]||"");
+  return `<div class="mat-card" style="--cc:${c}">
+    ${it.bilde?`<img class="mat-photo" src="${esc(it.bilde)}" alt="" loading="lazy">`:''}
     <div class="mat-top">
       <div class="mat-ic">📄</div>
       <div class="mat-h">
@@ -1131,6 +1153,7 @@ function matCardHTML(it){
       </div>
       <button class="iconbtn" data-medit="${it.id}" title="Rediger">✏️</button>
     </div>
+    ${(it.fag&&it.fag.length)?`<div class="tags">${it.fag.map(f=>`<span class="tag" style="--gc:${fargeFor(f)}">${esc(f)}</span>`).join('')}</div>`:''}
     ${(it.tema&&it.tema.length)?`<div class="temarad">${it.tema.map(t=>`<span class="tematag">${esc(t)}</span>`).join('')}</div>`:''}
     ${filer.length?`<div class="filrad">${filer.map(f=>`<a class="filkort" href="${esc(f.url)}" target="_blank" rel="noopener">
       <span class="fk-ic">📄</span>
@@ -1160,7 +1183,24 @@ function renderMateriell(){
       <strong>Fant ingen treff.</strong><br>Prøv et annet søkeord.</div>`;
     return;
   }
-  root.innerHTML=`<div class="mat-grid">${list.map(matCardHTML).join('')}</div>`;
+  if(!query){
+    // gruppert etter fag (faginndeling)
+    const grupper={};
+    for(const it of list){
+      const fags=(it.fag&&it.fag.length)?it.fag:["Anna"];
+      for(const f of fags){(grupper[f]=grupper[f]||[]).push(it)}
+    }
+    const ordna=[...FAGORDEN.filter(f=>grupper[f]),
+                 ...Object.keys(grupper).filter(f=>!FAGORDEN.includes(f)).sort()];
+    root.innerHTML=ordna.map(f=>{
+      const c=fargeFor(f);
+      return `<div class="group-head"><span class="bar" style="--gc:${c}"></span>
+        <h2>${esc(f)}</h2><span class="count">${grupper[f].length}</span><span class="rule"></span></div>
+        <div class="mat-grid">${grupper[f].map(matCardHTML).join('')}</div>`;
+    }).join('');
+  }else{
+    root.innerHTML=`<div class="mat-grid">${list.map(matCardHTML).join('')}</div>`;
+  }
   $$("[data-medit]",root).forEach(b=>b.onclick=()=>requestMatEdit(b.dataset.medit));
 }
 function byttVisning(v){
@@ -1414,19 +1454,25 @@ function openAdmin(){
 }
 
 /* skjema */
-function fagPicker(selected=[]){
-  const wrap=$("#f_fagpick");
+function fagPicker(selected=[], wrapId="f_fagpick"){
+  const wrap=$("#"+wrapId);
   wrap.innerHTML=FAGORDEN.map(f=>`<button type="button" data-fag="${esc(f)}"
      aria-pressed="${selected.includes(f)}" style="--ck:${fargeFor(f)}">
      <span style="width:9px;height:9px;border-radius:2px;background:${fargeFor(f)};display:inline-block"></span>${esc(f)}</button>`).join('')
-   +`<button type="button" id="addFag">+ Annet fag</button>`;
+   +`<button type="button" class="addFagBtn">+ Annet fag</button>`;
+  // ekstra fag som alt er valgt, men ikkje i standardlista
+  (selected||[]).filter(f=>!FAGORDEN.includes(f)).forEach(f=>{
+    const b=document.createElement("button");b.type="button";b.dataset.fag=f;b.setAttribute("aria-pressed","true");
+    b.innerHTML=`<span style="width:9px;height:9px;border-radius:2px;background:${fargeFor(f)};display:inline-block"></span>${esc(f)}`;
+    wrap.querySelector(".addFagBtn").before(b);
+  });
   $$("[data-fag]",wrap).forEach(b=>b.onclick=()=>b.setAttribute("aria-pressed",b.getAttribute("aria-pressed")!=="true"));
-  $("#addFag").onclick=()=>{
+  wrap.querySelector(".addFagBtn").onclick=()=>{
     const f=prompt("Navn på fag:");if(!f)return;
     const b=document.createElement("button");b.type="button";b.dataset.fag=f;b.setAttribute("aria-pressed","true");
     b.innerHTML=`<span style="width:9px;height:9px;border-radius:2px;background:${fargeFor(f)};display:inline-block"></span>${esc(f)}`;
     b.onclick=()=>b.setAttribute("aria-pressed",b.getAttribute("aria-pressed")!=="true");
-    $("#addFag").before(b);
+    wrap.querySelector(".addFagBtn").before(b);
   };
 }
 /* ---------- utskriftsmateriell (PDF til Firebase Storage) ---------- */
@@ -1506,6 +1552,7 @@ function openForm(id){
   oppdaterBildePrev();
   settBildeStatus(formBilde?("Bilde lagret · "+Math.round(dataUrlBytes(formBilde)/1024)+" kB"):"");
   filListeId="fileList"; filHintId="fileHint";
+  bildePrevId="f_bildePrev"; bildeClearId="f_bildeClear"; bildeStatusId="f_bildeStatus";
   formFiler=(it?.filer||[]).map(f=>({...f}));
   renderFileList();
   $("#fileHint").style.display="none";
@@ -1548,7 +1595,12 @@ function openMatForm(id){
   $("#m_navn").value=it?.navn||"";
   $("#m_skildring").value=it?.skildring||"";
   $("#m_tema").value=(it?.tema||[]).join(", ");
+  fagPicker(it?.fag||[], "m_fagpick");
   filListeId="matFileList"; filHintId="matFileHint";
+  bildePrevId="m_bildePrev"; bildeClearId="m_bildeClear"; bildeStatusId="m_bildeStatus";
+  formBilde=it?.bilde||"";
+  oppdaterBildePrev();
+  settBildeStatus(formBilde?("Bilde lagret · "+Math.round(dataUrlBytes(formBilde)/1024)+" kB"):"");
   formFiler=(it?.filer||[]).map(f=>({...f}));
   renderFileList();
   $("#matFileHint").style.display="none";
@@ -1558,6 +1610,7 @@ function openMatForm(id){
   requestAnimationFrame(()=>{ov.scrollTop=0});
 }
 function readMatForm(){
+  const fag=$$("#m_fagpick [data-fag]").filter(b=>b.getAttribute("aria-pressed")==="true").map(b=>b.dataset.fag);
   const tema=$("#m_tema").value.split(",").map(t=>t.trim()).filter(Boolean);
   const filer=formFiler.filter(f=>f.url).map(f=>({
     tittel:(f.tittel||f.navn||"PDF").trim(),
@@ -1567,7 +1620,8 @@ function readMatForm(){
     type:"materiell",
     navn:$("#m_navn").value.trim(),
     skildring:$("#m_skildring").value.trim(),
-    tema, filer
+    bilde:formBilde||"",
+    fag, tema, filer
   };
 }
 
@@ -1724,12 +1778,13 @@ Bruk norsk. Ikkje skriv noko anna enn JSON-objektet.`;
    BILDE-HANDTERING + AUTO-AI
    ================================================================= */
 function oppdaterBildePrev(){
-  const p=$("#f_bildePrev"), c=$("#f_bildeClear");
+  const p=$("#"+bildePrevId), c=$("#"+bildeClearId);
+  if(!p||!c)return;
   if(formBilde){ p.src=formBilde; p.classList.add("show"); c.style.display="inline-flex"; }
   else { p.removeAttribute("src"); p.classList.remove("show"); c.style.display="none"; }
 }
 function settBildeStatus(tekst, ok){
-  const el=$("#f_bildeStatus"); if(!el)return;
+  const el=$("#"+bildeStatusId); if(!el)return;
   el.textContent=tekst||""; el.classList.toggle("ok", !!ok);
 }
 /* teikn bildet på nytt i gitt storleik/kvalitet → data-URL (JPEG) */
@@ -1773,9 +1828,7 @@ async function krympBilde(file){
   }
   return ut;
 }
-$("#f_bildePick").onclick=()=>$("#f_bildeFile").click();
-$("#f_bildeClear").onclick=()=>{ formBilde=""; oppdaterBildePrev(); settBildeStatus(""); };
-$("#f_bildeFile").onchange=async e=>{
+async function handterBildeFil(e){
   const f=e.target.files&&e.target.files[0]; if(!f)return;
   settBildeStatus("Komprimerer …");
   try{
@@ -1784,7 +1837,13 @@ $("#f_bildeFile").onchange=async e=>{
     settBildeStatus("Bilde klart · "+Math.round(dataUrlBytes(formBilde)/1024)+" kB", true);
   }catch(err){ console.error(err); toast("Klarte ikke å lese bildet"); settBildeStatus(""); }
   e.target.value="";
-};
+}
+$("#f_bildePick").onclick=()=>$("#f_bildeFile").click();
+$("#f_bildeClear").onclick=()=>{ formBilde=""; oppdaterBildePrev(); settBildeStatus(""); };
+$("#f_bildeFile").onchange=handterBildeFil;
+$("#m_bildePick").onclick=()=>$("#m_bildeFile").click();
+$("#m_bildeClear").onclick=()=>{ formBilde=""; oppdaterBildePrev(); settBildeStatus(""); };
+$("#m_bildeFile").onchange=handterBildeFil;
 /* auto-AI: hent 3 forslag når navnet er fylt inn for ein ny ting */
 $("#f_navn").addEventListener("blur",()=>{
   if(editingId||aiAutoKjort||!window.aiKlar) return;
