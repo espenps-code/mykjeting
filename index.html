@@ -412,6 +412,7 @@
   .mat-card .ikon-group .ikon{width:44px;height:44px}
   /* vis alle nedlastingar på kort med mange filer */
   .filkort.fil-skjult{display:none}
+  .mat-card.skjult-fag{display:none}
   .vis-alle{display:inline-flex;align-items:center;gap:6px;margin-top:10px;
     border:1px solid var(--line);background:var(--card);color:var(--ink);
     cursor:pointer;font:inherit;font-weight:700;font-size:13.5px;padding:8px 15px;border-radius:999px}
@@ -655,7 +656,7 @@
 
   <!-- verktøylinje for utskriftsmateriell -->
   <div class="mattoolbar" id="mattoolbar">
-    <p class="mat-intro">Ferdige PDF-ar til nedlasting og utskrift – delt av lærere.</p>
+    <div class="chips" id="matchips"></div>
     <button class="addbtn" id="matAdd" title="Legg til utskriftsmateriell">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
       Legg til utskriftsmateriell
@@ -985,6 +986,7 @@ let filHintId="fileHint";    // kva feilmelding-hint som høyrer til opne skjema
 let bildePrevId="f_bildePrev", bildeClearId="f_bildeClear", bildeStatusId="f_bildeStatus"; // bilde-felt for opne skjema
 let aktivVisning="ting";     // "ting" eller "materiell"
 let aktivGruppe=null;        // åpen samling i materiell-fanen (null = toppnivå)
+let aktivMatFag="*";         // fag-filter i materiell-fanen
 let aiAutoKjort=false;   // har auto-AI kjørt for dette skjemaet?
 
 function $(s,r=document){return r.querySelector(s)}
@@ -1165,7 +1167,7 @@ function render(){
 /* =================================================================
    UTSKRIFTSMATERIELL – EIGEN FANE
    ================================================================= */
-function matCardHTML(it){
+function matCardHTML(it, extraCls){
   const filer=(it.filer||[]).filter(f=>!String(f.navn||f.tittel||"").startsWith("._"));
   const c=fargeFor((it.fag||[])[0]||"");
   const LIM=5;   // vis så mange nedlastinger før «Vis alle»
@@ -1174,7 +1176,7 @@ function matCardHTML(it){
       <span class="fk-tx"><strong>${esc(f.tittel||f.navn||'PDF')}</strong><small>PDF${f.storrelse?` · ${Math.round(f.storrelse/1024)} kB`:''}</small></span>
       <span class="fk-dl">Last ned ↓</span></a>`).join('');
   const visAlle=filer.length>LIM?`<button class="vis-alle" type="button">Vis alle ${filer.length} filer ↓</button>`:'';
-  return `<div class="mat-card" style="--cc:${c}">
+  return `<div class="mat-card ${extraCls||''}" style="--cc:${c}">
     ${it.bilde?`<img class="mat-photo" src="${esc(it.bilde)}" alt="" loading="lazy">`:''}
     <div class="mat-top">
       ${ikonTile(it)}
@@ -1189,6 +1191,15 @@ function matCardHTML(it){
     ${filer.length?`<div class="filrad">${filerHtml}</div>${visAlle}`
       :`<div class="empty" style="padding:18px;margin-top:10px">Ingen filer lagt inn ennå.</div>`}
   </div>`;
+}
+function matChipRow(fri){
+  const wrap=$("#matchips"); if(!wrap) return;
+  const fagBrukt=[...new Set(fri.flatMap(i=>(i.fag&&i.fag.length)?i.fag:["Anna"]))];
+  const ordna=[...FAGORDEN.filter(f=>fagBrukt.includes(f)),...fagBrukt.filter(f=>!FAGORDEN.includes(f)).sort()];
+  let h=`<button class="chip" data-fag="*" aria-pressed="${aktivMatFag==="*"}">Alle fag</button>`;
+  for(const f of ordna){ h+=`<button class="chip" data-fag="${esc(f)}" aria-pressed="${aktivMatFag===f}" style="--ck:${fargeFor(f)}"><span class="swatch"></span>${esc(f)}</button>`; }
+  wrap.innerHTML=h;
+  $$(".chip",wrap).forEach(b=>b.onclick=()=>{aktivMatFag=b.dataset.fag; renderMateriell(); window.scrollTo({top:0,behavior:'instant'in window?'instant':'auto'});});
 }
 function wireMat(root){
   $$("[data-medit]",root).forEach(b=>b.onclick=()=>requestMatEdit(b.dataset.medit));
@@ -1217,6 +1228,7 @@ function renderMateriell(){
       <strong>Ingen utskriftsmateriell ennå.</strong><br>Trykk «+ Legg til utskriftsmateriell» og last opp den første PDF-en.</div>`;
     return;
   }
+  const _mc=$("#matchips"); if(_mc) _mc.innerHTML="";   // piller berre på toppnivå
   // SØK – flatt på tvers av alt (også undersider)
   if(query){
     const qOrd=ordliste(query);
@@ -1249,27 +1261,43 @@ function renderMateriell(){
   const fri=alle.filter(i=>!erSamling(i.gruppe));
   const grupper={}; alle.filter(i=>erSamling(i.gruppe)).forEach(i=>{(grupper[i.gruppe]=grupper[i.gruppe]||[]).push(i)});
   const gruppeNavn=Object.keys(grupper).sort((a,b)=>a.localeCompare(b,'no'));
+  matChipRow(fri);   // fag-piller basert på dei frie korta
   let html="";
-  if(gruppeNavn.length){
+  // Samlinger berre under «Alle fag»
+  if(aktivMatFag==="*" && gruppeNavn.length){
     html+=`<div class="group-head"><span class="bar" style="--gc:#9C5BA8"></span>
       <h2>Samlinger</h2><span class="count">${gruppeNavn.length}</span><span class="rule"></span></div>
       <div class="mat-grid">${gruppeNavn.map(g=>gruppeKortHTML(g,grupper[g])).join('')}</div>`;
   }
-  if(fri.length){
-    const fg={}; for(const it of fri){ const fags=(it.fag&&it.fag.length)?it.fag:["Anna"]; for(const f of fags){(fg[f]=fg[f]||[]).push(it)} }
+  const friVist = aktivMatFag==="*" ? fri : fri.filter(i=>((i.fag&&i.fag.length)?i.fag:["Anna"]).includes(aktivMatFag));
+  if(aktivMatFag==="*"){
+    const fg={}; for(const it of friVist){ const fags=(it.fag&&it.fag.length)?it.fag:["Anna"]; for(const f of fags){(fg[f]=fg[f]||[]).push(it)} }
     const ordna=[...FAGORDEN.filter(f=>fg[f]),...Object.keys(fg).filter(f=>!FAGORDEN.includes(f)).sort()];
-    html+=ordna.map(f=>{ const c=fargeFor(f);
+    const LIM=3;
+    html+=ordna.map(f=>{ const c=fargeFor(f); const arr=fg[f];
+      const cards=arr.map((it,idx)=>matCardHTML(it, idx>=LIM?'skjult-fag':'')).join('');
+      const mer=arr.length>LIM?`<button class="show-more" type="button">Vis alle ${arr.length} ↓</button>`:'';
       return `<div class="group-head"><span class="bar" style="--gc:${c}"></span>
-        <h2>${esc(f)}</h2><span class="count">${fg[f].length}</span><span class="rule"></span></div>
-        <div class="mat-grid">${fg[f].map(matCardHTML).join('')}</div>`; }).join('');
+        <h2>${esc(f)}</h2><span class="count">${arr.length}</span><span class="rule"></span></div>
+        <div class="mat-grid">${cards}</div>${mer}`; }).join('');
+  }else{
+    html+=`<div class="group-head"><span class="bar" style="--gc:${fargeFor(aktivMatFag)}"></span>
+      <h2>${esc(aktivMatFag)}</h2><span class="count">${friVist.length}</span><span class="rule"></span></div>
+      <div class="mat-grid">${friVist.map(it=>matCardHTML(it)).join('')}</div>`;
   }
   root.innerHTML=html;
   $$(".gruppe-kort",root).forEach(b=>b.onclick=()=>{aktivGruppe=b.dataset.gruppe;renderMateriell();window.scrollTo({top:0,behavior:'instant'in window?'instant':'auto'})});
+  $$(".show-more",root).forEach(b=>b.onclick=()=>{
+    const grid=b.previousElementSibling;
+    $$(".mat-card.skjult-fag",grid).forEach(c=>c.classList.remove("skjult-fag"));
+    b.remove();
+  });
   wireMat(root);
 }
 function byttVisning(v){
   aktivVisning=v;
   aktivGruppe=null;
+  aktivMatFag="*";
   document.body.classList.toggle("vis-materiell", v==='materiell');
   $("#tabTing").setAttribute("aria-pressed", v==='ting');
   $("#tabMat").setAttribute("aria-pressed", v==='materiell');
