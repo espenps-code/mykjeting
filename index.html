@@ -1244,8 +1244,10 @@ function renderMateriell(){
     }
   }
   // TOPPNIVÅ – samlinger + frie kort gruppert etter fag
-  const fri=alle.filter(i=>!i.gruppe);
-  const grupper={}; alle.filter(i=>i.gruppe).forEach(i=>{(grupper[i.gruppe]=grupper[i.gruppe]||[]).push(i)});
+  // Berre Lesevinduet vises som samling; alt anna er vanlege kort.
+  const erSamling=g=>!!g && g.startsWith("Lesevinduet");
+  const fri=alle.filter(i=>!erSamling(i.gruppe));
+  const grupper={}; alle.filter(i=>erSamling(i.gruppe)).forEach(i=>{(grupper[i.gruppe]=grupper[i.gruppe]||[]).push(i)});
   const gruppeNavn=Object.keys(grupper).sort((a,b)=>a.localeCompare(b,'no'));
   let html="";
   if(gruppeNavn.length){
