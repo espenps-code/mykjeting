@@ -104,6 +104,13 @@
     display:none;align-items:center;justify-content:center;
   }
   .search .clearbtn.show{display:flex}
+  /* søk-omfang (ting / materiell) */
+  .sok-omfang{display:inline-flex;align-items:center;gap:6px;pointer-events:auto;flex-wrap:wrap}
+  .so-label{color:var(--muted);font-size:13.5px;font-weight:700}
+  .so-btn{border:1px solid var(--line);background:var(--card);color:var(--muted);font:inherit;
+    font-weight:700;font-size:13.5px;padding:8px 13px;border-radius:999px;cursor:pointer;
+    display:inline-flex;align-items:center;gap:5px}
+  .so-btn[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
 
   /* ---------- LAYOUT ---------- */
   main{max-width:1120px;margin:0 auto;padding:0 22px 90px}
@@ -326,6 +333,28 @@
     padding:24px;overflow:auto;
   }
   .overlay.open{display:flex;align-items:flex-start;justify-content:center}
+
+  /* ===== KODE-PORT ===== */
+  .port{position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;
+    padding:24px;overflow:auto;
+    background:radial-gradient(120% 120% at 50% 0%, #FBF4E4 0%, var(--paper) 55%, #efe7d6 100%)}
+  body.laast{overflow:hidden}
+  body.laast .port{display:flex}
+  .port-kort{background:var(--card);border:1px solid var(--line);border-radius:28px;
+    box-shadow:0 20px 60px #0002;max-width:440px;width:100%;padding:34px 30px 30px;text-align:center;
+    animation:rise .4s ease}
+  .port-ugle{width:200px;max-width:62%;height:auto;display:block;margin:0 auto 6px;
+    filter:drop-shadow(0 8px 16px #0001)}
+  .port-tittel{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:clamp(30px,7vw,42px);
+    letter-spacing:-.02em;margin:0 0 6px}
+  .port-undertittel{color:var(--muted);font-size:15px;margin:0 auto 22px;max-width:34ch;line-height:1.45}
+  .port-inn{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+  .port-inn input{flex:1 1 150px;max-width:200px;border:1px solid var(--line);border-radius:13px;background:#fff;
+    padding:14px 16px;font:inherit;font-size:20px;text-align:center;letter-spacing:.18em;color:var(--ink)}
+  .port-inn input:focus{outline:3px solid color-mix(in srgb,var(--accent,#E8A23D) 55%, white);outline-offset:1px;border-color:var(--accent,#E8A23D)}
+  .port-inn .btn{font-size:16px;padding:14px 22px}
+  .port-feil{color:#B23A2E;font-weight:700;font-size:14px;min-height:20px;margin-top:14px}
+  .port-input-shake{animation:pinshake .4s}
   .sheet{
     background:var(--paper);border-radius:22px;max-width:720px;width:100%;
     margin:28px auto;box-shadow:var(--shadow-lg);overflow:hidden;
@@ -588,7 +617,21 @@
     text-transform:uppercase;letter-spacing:.04em}
 </style>
 </head>
-<body>
+<body class="laast">
+
+<!-- ===== KODE-PORT (vises til riktig kode er tastet) ===== -->
+<div class="port" id="port" aria-hidden="true">
+  <div class="port-kort">
+    <img class="port-ugle" id="portUgle" src="velkomst-ugle-transp.webp" alt="" onerror="this.style.display='none'">
+    <h1 class="port-tittel">Mykje&nbsp;Ting</h1>
+    <p class="port-undertittel">Alt skolen har av ting og utskriftsmateriell – på ett sted.</p>
+    <div class="port-inn">
+      <input id="portInput" type="tel" inputmode="numeric" maxlength="8" placeholder="Kode" autocomplete="off" aria-label="Kode">
+      <button class="btn primary" id="portKnapp">Kom inn →</button>
+    </div>
+    <div class="port-feil" id="portFeil"></div>
+  </div>
+</div>
 
 <!-- subtil 3D-spinnande fag-bakgrunn -->
 <div class="bg-fag" aria-hidden="true">
@@ -625,6 +668,11 @@
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
         <input id="search" type="search" placeholder="Søk etter ting, fag eller aktivitet …" autocomplete="off" aria-label="Søk">
         <button class="clearbtn" id="clearSearch" aria-label="Tøm søk">×</button>
+      </div>
+      <div class="sok-omfang" id="sokOmfang" style="display:none">
+        <span class="so-label">Søk i:</span>
+        <button class="so-btn" type="button" data-omf="ting" aria-pressed="true">📦 Ting</button>
+        <button class="so-btn" type="button" data-omf="materiell" aria-pressed="false">📄 Materiell</button>
       </div>
       <button class="backlink" id="back" type="button">← Tilbake til oversikten</button>
     </div>
@@ -925,11 +973,38 @@ const firebaseConfig = {
 const COLLECTION = "mykjeting";
 const ADD_PIN    = "2008";        // alle kan legge til med denne
 const ADMIN_PIN  = "2468";        // <-- PRIVAT: endre denne. For redigering/sletting
+const SITE_PIN   = "2008";        // kode for å komme inn på sida (tom "" = ingen port)
 const AI_MODELL  = "gemini-2.5-flash-lite";  // lettare modell, mindre kø (Firebase AI Logic)
 const SITE_URL   = "";            // f.eks. "https://espenps-code.github.io/mykjeting/"
 /* ▲▲▲  SLUTT OPPSETT  ▲▲▲ */
 window.FB_CONFIG = firebaseConfig;   // brukes av AI Logic-modulen lenger nede
 window.AI_MODELL = AI_MODELL;
+
+/* ---------- kode-port: vis sida berre med rett kode ---------- */
+(function(){
+  const opne=()=>document.body.classList.remove("laast");
+  let inne=false; try{ inne=localStorage.getItem("mt_inne")==="1"; }catch(e){}
+  if(!SITE_PIN || inne){ opne(); return; }
+  function sjekk(){
+    const inp=document.getElementById("portInput"), feil=document.getElementById("portFeil");
+    if(inp.value.trim()===SITE_PIN){
+      try{ localStorage.setItem("mt_inne","1"); }catch(e){}
+      const port=document.getElementById("port");
+      port.style.transition="opacity .35s"; port.style.opacity="0";
+      setTimeout(()=>{ opne(); port.style.opacity=""; port.style.transition=""; }, 340);
+    }else{
+      feil.textContent="Feil kode – prøv igjen.";
+      inp.classList.remove("port-input-shake"); void inp.offsetWidth; inp.classList.add("port-input-shake");
+      inp.select();
+    }
+  }
+  document.addEventListener("DOMContentLoaded",()=>{
+    const inp=document.getElementById("portInput");
+    document.getElementById("portKnapp").onclick=sjekk;
+    inp.addEventListener("keydown",e=>{ if(e.key==="Enter") sjekk(); });
+    setTimeout(()=>inp.focus(),200);
+  });
+})();
 
 /* ---------- fag-fargar ---------- */
 const FAGFARGE = {
@@ -1298,6 +1373,9 @@ function byttVisning(v){
   aktivVisning=v;
   aktivGruppe=null;
   aktivMatFag="*";
+  // nullstill søk ved fanebytte
+  const _si=$("#search"); if(_si){ _si.value=""; query=""; const _cb=$("#clearSearch"); if(_cb)_cb.classList.remove("show"); }
+  søkTom=true; const _so=$("#sokOmfang"); if(_so) _so.style.display="none";
   document.body.classList.toggle("vis-materiell", v==='materiell');
   $("#tabTing").setAttribute("aria-pressed", v==='ting');
   $("#tabMat").setAttribute("aria-pressed", v==='materiell');
@@ -1979,12 +2057,30 @@ $("#deleteThing").onclick=async()=>{
   }catch(e){console.error("Sletting feila:", e);toast("Sletting feilet: "+(e?.code||e?.message||"ukjent feil"), 8000)}
 };
 
-/* søk */
+/* søk – med valg av omfang (ting / utskriftsmateriell) */
 const si=$("#search"),cb=$("#clearSearch");
-function renderAktiv(){ if(aktivVisning==='materiell') renderMateriell(); else render(); }
-si.addEventListener("input",()=>{query=si.value.trim();cb.classList.toggle("show",!!query);
-  if(document.body.classList.contains("view-detail"))closeDetail();renderAktiv()});
-cb.onclick=()=>{si.value="";query="";cb.classList.remove("show");renderAktiv();si.focus()};
+let søkOmfang="ting", søkTom=true;
+function visScope(v){ const so=$("#sokOmfang"); if(so) so.style.display=v?"":"none"; }
+function tegnOmfang(){
+  $$("#sokOmfang [data-omf]").forEach(b=>b.setAttribute("aria-pressed", String(b.dataset.omf===søkOmfang)));
+  document.body.classList.toggle("vis-materiell", søkOmfang==="materiell");
+  if(søkOmfang==="materiell") renderMateriell(); else render();
+}
+function søk(){
+  query=si.value.trim(); cb.classList.toggle("show",!!query);
+  if(document.body.classList.contains("view-detail")) closeDetail();
+  if(query){
+    if(søkTom) søkOmfang=aktivVisning;   // start søket i fana du står i
+    søkTom=false; visScope(true); tegnOmfang();
+  }else{
+    søkTom=true; visScope(false);
+    document.body.classList.toggle("vis-materiell", aktivVisning==="materiell");
+    if(aktivVisning==="materiell") renderMateriell(); else render();
+  }
+}
+si.addEventListener("input", søk);
+cb.onclick=()=>{ si.value=""; søk(); si.focus(); };
+$$("#sokOmfang [data-omf]").forEach(b=>b.onclick=()=>{ søkOmfang=b.dataset.omf; tegnOmfang(); });
 
 /* =================================================================
    OPPSTART
