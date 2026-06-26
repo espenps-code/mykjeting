@@ -416,6 +416,17 @@
     border:1px solid var(--line);background:var(--card);color:var(--ink);
     cursor:pointer;font:inherit;font-weight:700;font-size:13.5px;padding:8px 15px;border-radius:999px}
   .vis-alle:hover{background:var(--ink);color:#fff;border-color:var(--ink)}
+  /* samlings-kort (underside-navigasjon) */
+  .gruppe-kort{display:block;width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer;
+    transition:transform .08s ease, box-shadow .15s ease}
+  .gruppe-kort:hover{transform:translateY(-2px);box-shadow:0 6px 18px #0002}
+  .gruppe-kort .mat-h p{font-weight:700;color:var(--cc,#9C5BA8)}
+  .gaa-til{display:inline-flex;align-items:center;gap:6px;margin-top:13px;
+    background:var(--ink);color:#fff;border-radius:999px;padding:8px 16px;font-weight:700;font-size:14px}
+  .backlink2{display:inline-flex;align-items:center;gap:8px;margin:0 0 14px;
+    border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;
+    font:inherit;font-weight:700;font-size:14.5px;padding:9px 17px;border-radius:999px;box-shadow:var(--shadow)}
+  .backlink2:hover{background:var(--ink);color:#fff;border-color:var(--ink)}
 
   /* admin-liste */
   .adminlist{display:flex;flex-direction:column;gap:10px}
@@ -973,6 +984,7 @@ let filListeId="fileList";   // kva fil-liste opplasting skal teikne i (ting- vs
 let filHintId="fileHint";    // kva feilmelding-hint som høyrer til opne skjema
 let bildePrevId="f_bildePrev", bildeClearId="f_bildeClear", bildeStatusId="f_bildeStatus"; // bilde-felt for opne skjema
 let aktivVisning="ting";     // "ting" eller "materiell"
+let aktivGruppe=null;        // åpen samling i materiell-fanen (null = toppnivå)
 let aiAutoKjort=false;   // har auto-AI kjørt for dette skjemaet?
 
 function $(s,r=document){return r.querySelector(s)}
@@ -1178,6 +1190,25 @@ function matCardHTML(it){
       :`<div class="empty" style="padding:18px;margin-top:10px">Ingen filer lagt inn ennå.</div>`}
   </div>`;
 }
+function wireMat(root){
+  $$("[data-medit]",root).forEach(b=>b.onclick=()=>requestMatEdit(b.dataset.medit));
+  $$(".vis-alle",root).forEach(b=>b.onclick=()=>{
+    b.closest(".mat-card").querySelectorAll(".filkort.fil-skjult").forEach(e=>e.classList.remove("fil-skjult"));
+    b.remove();
+  });
+}
+function gruppeKortHTML(g, subs){
+  const c=fargeFor((subs[0].fag||[])[0]||"");
+  const cover=(subs.find(s=>s.bilde)||{}).bilde||"";
+  const antFiler=subs.reduce((n,s)=>n+((s.filer||[]).length),0);
+  return `<button class="mat-card gruppe-kort" style="--cc:${c}" data-gruppe="${esc(g)}">
+    ${cover?`<img class="mat-photo" src="${esc(cover)}" alt="" loading="lazy">`:''}
+    <div class="mat-top"><div class="ikon">📁</div>
+      <div class="mat-h"><h3>${esc(g)}</h3><p>${subs.length} kort · ${antFiler} filer</p></div>
+    </div>
+    <span class="gaa-til">Gå til →</span>
+  </button>`;
+}
 function renderMateriell(){
   const root=$("#materiell"); if(!root) return;
   const alle=items.filter(i=>i.type==='materiell');
@@ -1186,45 +1217,57 @@ function renderMateriell(){
       <strong>Ingen utskriftsmateriell ennå.</strong><br>Trykk «+ Legg til utskriftsmateriell» og last opp den første PDF-en.</div>`;
     return;
   }
-  let list=alle;
+  // SØK – flatt på tvers av alt (også undersider)
   if(query){
     const qOrd=ordliste(query);
-    list=alle.filter(it=>{
-      const hay=[it.navn,it.skildring,(it.tema||[]).join(" ")].join(" ").toLowerCase();
+    const list=alle.filter(it=>{
+      const hay=[it.navn,it.skildring,it.gruppe,(it.tema||[]).join(" ")].join(" ").toLowerCase();
       return qOrd.every(qw=>hay.includes(qw));
     });
+    root.innerHTML=list.length
+      ? `<div class="mat-grid">${list.map(matCardHTML).join('')}</div>`
+      : `<div class="empty"><div class="big">🔍</div><strong>Fant ingen treff.</strong><br>Prøv et annet søkeord.</div>`;
+    wireMat(root); return;
   }
-  if(list.length===0){
-    root.innerHTML=`<div class="empty"><div class="big">🔍</div>
-      <strong>Fant ingen treff.</strong><br>Prøv et annet søkeord.</div>`;
-    return;
-  }
-  if(!query){
-    // gruppert etter fag (faginndeling)
-    const grupper={};
-    for(const it of list){
-      const fags=(it.fag&&it.fag.length)?it.fag:["Anna"];
-      for(const f of fags){(grupper[f]=grupper[f]||[]).push(it)}
+  // INNE I EN SAMLING
+  if(aktivGruppe){
+    const subs=alle.filter(i=>i.gruppe===aktivGruppe);
+    if(!subs.length){ aktivGruppe=null; }
+    else{
+      const c=fargeFor((subs[0].fag||[])[0]||"");
+      root.innerHTML=`<button class="backlink2" id="gruppeBack">← Tilbake til samlinger</button>
+        <div class="group-head"><span class="bar" style="--gc:${c}"></span>
+          <h2>${esc(aktivGruppe)}</h2><span class="count">${subs.length}</span><span class="rule"></span></div>
+        <div class="mat-grid">${subs.map(matCardHTML).join('')}</div>`;
+      $("#gruppeBack").onclick=()=>{aktivGruppe=null;renderMateriell();window.scrollTo({top:0,behavior:'instant'in window?'instant':'auto'})};
+      wireMat(root); return;
     }
-    const ordna=[...FAGORDEN.filter(f=>grupper[f]),
-                 ...Object.keys(grupper).filter(f=>!FAGORDEN.includes(f)).sort()];
-    root.innerHTML=ordna.map(f=>{
-      const c=fargeFor(f);
-      return `<div class="group-head"><span class="bar" style="--gc:${c}"></span>
-        <h2>${esc(f)}</h2><span class="count">${grupper[f].length}</span><span class="rule"></span></div>
-        <div class="mat-grid">${grupper[f].map(matCardHTML).join('')}</div>`;
-    }).join('');
-  }else{
-    root.innerHTML=`<div class="mat-grid">${list.map(matCardHTML).join('')}</div>`;
   }
-  $$("[data-medit]",root).forEach(b=>b.onclick=()=>requestMatEdit(b.dataset.medit));
-  $$(".vis-alle",root).forEach(b=>b.onclick=()=>{
-    b.closest(".mat-card").querySelectorAll(".filkort.fil-skjult").forEach(e=>e.classList.remove("fil-skjult"));
-    b.remove();
-  });
+  // TOPPNIVÅ – samlinger + frie kort gruppert etter fag
+  const fri=alle.filter(i=>!i.gruppe);
+  const grupper={}; alle.filter(i=>i.gruppe).forEach(i=>{(grupper[i.gruppe]=grupper[i.gruppe]||[]).push(i)});
+  const gruppeNavn=Object.keys(grupper).sort((a,b)=>a.localeCompare(b,'no'));
+  let html="";
+  if(gruppeNavn.length){
+    html+=`<div class="group-head"><span class="bar" style="--gc:#9C5BA8"></span>
+      <h2>Samlinger</h2><span class="count">${gruppeNavn.length}</span><span class="rule"></span></div>
+      <div class="mat-grid">${gruppeNavn.map(g=>gruppeKortHTML(g,grupper[g])).join('')}</div>`;
+  }
+  if(fri.length){
+    const fg={}; for(const it of fri){ const fags=(it.fag&&it.fag.length)?it.fag:["Anna"]; for(const f of fags){(fg[f]=fg[f]||[]).push(it)} }
+    const ordna=[...FAGORDEN.filter(f=>fg[f]),...Object.keys(fg).filter(f=>!FAGORDEN.includes(f)).sort()];
+    html+=ordna.map(f=>{ const c=fargeFor(f);
+      return `<div class="group-head"><span class="bar" style="--gc:${c}"></span>
+        <h2>${esc(f)}</h2><span class="count">${fg[f].length}</span><span class="rule"></span></div>
+        <div class="mat-grid">${fg[f].map(matCardHTML).join('')}</div>`; }).join('');
+  }
+  root.innerHTML=html;
+  $$(".gruppe-kort",root).forEach(b=>b.onclick=()=>{aktivGruppe=b.dataset.gruppe;renderMateriell();window.scrollTo({top:0,behavior:'instant'in window?'instant':'auto'})});
+  wireMat(root);
 }
 function byttVisning(v){
   aktivVisning=v;
+  aktivGruppe=null;
   document.body.classList.toggle("vis-materiell", v==='materiell');
   $("#tabTing").setAttribute("aria-pressed", v==='ting');
   $("#tabMat").setAttribute("aria-pressed", v==='materiell');
