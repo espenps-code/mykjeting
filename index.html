@@ -1166,7 +1166,7 @@ function render(){
    UTSKRIFTSMATERIELL – EIGEN FANE
    ================================================================= */
 function matCardHTML(it){
-  const filer=(it.filer||[]);
+  const filer=(it.filer||[]).filter(f=>!String(f.navn||f.tittel||"").startsWith("._"));
   const c=fargeFor((it.fag||[])[0]||"");
   const LIM=5;   // vis så mange nedlastinger før «Vis alle»
   const filerHtml=filer.map((f,idx)=>`<a class="filkort${idx>=LIM?' fil-skjult':''}" href="${esc(f.url)}" target="_blank" rel="noopener">
