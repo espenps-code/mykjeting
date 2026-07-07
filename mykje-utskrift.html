@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="nb">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mykje Utskrift – Lag arbeidsark på sekunder</title>
+<meta name="description" content="Redigerbare arbeidsark for barneskolen: navnesporing, tall, alfabet, diplomer og mer. Skriv inn – se på – skriv ut.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Andika:ital,wght@0,400;0,700;1,400&family=Playwrite+NO:wght@400&family=Playwrite+DK+Loopet:wght@400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --papir:#FBF8F1;
+  --ink:#22384E;
+  --ink-svak:#5B6E82;
+  --blyant:#F2B21B;
+  --himmel:#5E9ED6;
+  --himmel-lys:#E3EEF8;
+  --korall:#E25C4A;
+  --gronn:#4CA47A;
+  --linje:#A9C0D4;
+  --linje-bunn:#5E82A3;
+  --spor:#C4CFDA;
+  --kort:#FFFFFF;
+  --skygge:0 2px 6px rgba(34,56,78,.08), 0 10px 24px rgba(34,56,78,.07);
+  --radius:18px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  font-family:'Atkinson Hyperlegible',sans-serif;
+  background:var(--papir);
+  color:var(--ink);
+  line-height:1.55;
+}
+h1,h2,h3,.display{font-family:'Fredoka One',cursive;font-weight:400;line-height:1.15}
+button{font-family:inherit;cursor:pointer}
+input,select,textarea{font-family:inherit;font-size:1rem;color:var(--ink)}
+
+/* ---------- linjert bakgrunn i hero ---------- */
+.hero{
+  position:relative;
+  background:
+    repeating-linear-gradient(to bottom, transparent 0 35px, rgba(94,158,214,.14) 35px 36px),
+    linear-gradient(180deg,#FFFDF8 0%, var(--papir) 100%);
+  border-bottom:1px solid rgba(94,158,214,.25);
+  overflow:hidden;
+}
+.hero::before{ /* rød margstrek som i en skrivebok */
+  content:"";position:absolute;top:0;bottom:0;left:clamp(18px,6vw,90px);
+  width:2px;background:rgba(226,92,74,.35);
+}
+.wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+
+/* ---------- topplinje ---------- */
+header.site{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:18px 0;position:relative;z-index:2;
+}
+.logo{display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--ink)}
+.logo-ikon{
+  width:44px;height:44px;border-radius:12px;background:var(--blyant);
+  display:grid;place-items:center;font-size:24px;
+  box-shadow:0 3px 0 rgba(34,56,78,.18);
+}
+.logo-navn{font-family:'Fredoka One';font-size:1.35rem;letter-spacing:.5px}
+.logo-navn small{display:block;font-family:'Atkinson Hyperlegible';font-weight:400;font-size:.72rem;color:var(--ink-svak);letter-spacing:0}
+nav.hoved{display:flex;gap:8px;flex-wrap:wrap}
+nav.hoved a{
+  text-decoration:none;color:var(--ink);font-weight:700;font-size:.92rem;
+  padding:8px 14px;border-radius:999px;transition:background .15s;
+}
+nav.hoved a:hover{background:var(--himmel-lys)}
+
+/* ---------- hero-innhold ---------- */
+.hero-inner{padding:44px 0 60px;position:relative;z-index:2}
+.hero h1{font-size:clamp(2rem,5vw,3.2rem);max-width:640px}
+.hero h1 .spor-tekst{
+  color:transparent;
+  -webkit-text-stroke:2px var(--himmel);
+  text-stroke:2px var(--himmel);
+}
+.hero p.ingress{max-width:560px;margin-top:14px;font-size:1.12rem;color:var(--ink-svak)}
+.hero-demo{
+  margin-top:30px;max-width:640px;background:#fff;border-radius:var(--radius);
+  box-shadow:var(--skygge);padding:20px 22px;border:1px solid rgba(94,158,214,.25);
+}
+.hero-demo label{font-weight:700;font-size:.9rem;display:block;margin-bottom:8px}
+.hero-demo .demo-rad{display:flex;gap:10px;flex-wrap:wrap}
+.hero-demo input{
+  flex:1;min-width:180px;padding:12px 16px;border:2px solid var(--linje);
+  border-radius:12px;font-size:1.1rem;outline:none;transition:border-color .15s;
+}
+.hero-demo input:focus{border-color:var(--himmel)}
+.knapp{
+  border:none;border-radius:12px;padding:12px 22px;font-weight:700;font-size:1rem;
+  background:var(--blyant);color:var(--ink);box-shadow:0 3px 0 rgba(34,56,78,.22);
+  transition:transform .1s, box-shadow .1s;
+}
+.knapp:hover{transform:translateY(-1px)}
+.knapp:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(34,56,78,.22)}
+.knapp.sekundaer{background:#fff;border:2px solid var(--linje);box-shadow:none}
+.knapp.sekundaer:hover{border-color:var(--himmel);background:var(--himmel-lys)}
+.knapp.primaer-bla{background:var(--himmel);color:#fff}
+.demo-preview{margin-top:18px}
+
+/* ---------- sporingsrader (brukes i demo, ark og miniatyrer) ---------- */
+.trace-row{
+  position:relative;
+  background:
+    linear-gradient(var(--linje),var(--linje)) 0 18%/100% 1.3px no-repeat,
+    linear-gradient(var(--linje-bunn),var(--linje-bunn)) 0 73%/100% 1.8px no-repeat;
+}
+.trace-row::after{
+  content:"";position:absolute;left:0;right:0;top:45%;
+  border-top:1.4px dashed var(--linje);
+}
+.trace-row .t{
+  display:block;position:relative;z-index:1;
+  font-family:'Andika',sans-serif;
+  white-space:nowrap;overflow:hidden;
+  letter-spacing:.05em;
+}
+.trace-row.stil-graa .t{color:var(--spor)}
+.trace-row.stil-omriss .t{color:transparent;-webkit-text-stroke:1.5px #9FAEBD}
+.trace-row.stil-solid .t{color:var(--ink)}
+
+/* demo-varianten: fast høyde i px */
+.demo-preview .trace-row{height:64px;background-color:#fff;
+  background:
+    linear-gradient(var(--linje),var(--linje)) 0 18%/100% 1.3px no-repeat,
+    linear-gradient(var(--linje-bunn),var(--linje-bunn)) 0 73%/100% 1.8px no-repeat,#fff}
+.demo-preview .trace-row .t{font-size:43px;line-height:64px;padding-left:14px}
+
+/* ---------- seksjoner ---------- */
+section.blokk{padding:56px 0}
+.seksjon-topp{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:8px}
+.seksjon-topp h2{font-size:clamp(1.5rem,3vw,2.1rem)}
+.seksjon-topp p{color:var(--ink-svak)}
+
+/* kategori-chips */
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0 26px}
+.chip{
+  border:2px solid var(--linje);background:#fff;border-radius:999px;
+  padding:8px 16px;font-weight:700;font-size:.9rem;color:var(--ink);
+  transition:all .15s;
+}
+.chip:hover{border-color:var(--himmel)}
+.chip.aktiv{background:var(--ink);border-color:var(--ink);color:#fff}
+
+/* ---------- kortgalleri ---------- */
+.galleri{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:22px}
+.kort{
+  background:var(--kort);border-radius:var(--radius);box-shadow:var(--skygge);
+  overflow:hidden;border:1px solid rgba(34,56,78,.06);
+  display:flex;flex-direction:column;
+  transition:transform .15s, box-shadow .15s;
+  text-align:left;padding:0;
+}
+.kort:hover{transform:translateY(-4px);box-shadow:0 6px 10px rgba(34,56,78,.1),0 18px 34px rgba(34,56,78,.12)}
+.kort:focus-visible{outline:3px solid var(--himmel);outline-offset:2px}
+.kort-thumb{
+  position:relative;background:var(--himmel-lys);
+  aspect-ratio:210/160;overflow:hidden;
+  border-bottom:1px solid rgba(34,56,78,.07);
+}
+.kort-thumb .mini-ark{
+  position:absolute;top:14px;left:50%;
+  width:210mm;height:297mm;background:#fff;
+  transform:translateX(-50%) scale(var(--mini,0.22));transform-origin:top center;
+  box-shadow:0 2px 10px rgba(34,56,78,.18);
+  border-radius:2px;pointer-events:none;
+}
+.kort-body{padding:16px 18px 18px;display:flex;flex-direction:column;gap:6px;flex:1}
+.kort-kat{font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--himmel)}
+.kort h3{font-size:1.08rem}
+.kort p{font-size:.9rem;color:var(--ink-svak);flex:1}
+.kort .kort-cta{
+  margin-top:10px;font-weight:700;color:var(--ink);font-size:.9rem;
+  display:inline-flex;align-items:center;gap:6px;
+}
+
+/* ---------- slik virker det ---------- */
+.steg{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px;margin-top:24px}
+.steg-kort{background:#fff;border-radius:var(--radius);padding:22px;box-shadow:var(--skygge)}
+.steg-kort .tall{
+  width:40px;height:40px;border-radius:12px;display:grid;place-items:center;
+  font-family:'Fredoka One';font-size:1.2rem;color:#fff;margin-bottom:12px;
+}
+.steg-kort:nth-child(1) .tall{background:var(--himmel)}
+.steg-kort:nth-child(2) .tall{background:var(--blyant)}
+.steg-kort:nth-child(3) .tall{background:var(--gronn)}
+.steg-kort h3{font-size:1.05rem;margin-bottom:6px}
+.steg-kort p{font-size:.92rem;color:var(--ink-svak)}
+
+/* ---------- footer ---------- */
+footer.site{
+  border-top:1px solid rgba(94,158,214,.25);padding:28px 0 36px;margin-top:30px;
+  color:var(--ink-svak);font-size:.9rem;
+}
+footer.site .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+
+/* ---------- EDITOR ---------- */
+#editor{position:fixed;inset:0;background:var(--papir);z-index:50;display:none;flex-direction:column}
+#editor.open{display:flex}
+.editor-topp{
+  display:flex;align-items:center;gap:14px;padding:12px 20px;
+  background:#fff;border-bottom:1px solid rgba(34,56,78,.1);flex-wrap:wrap;
+}
+.editor-topp h2{font-size:1.15rem;flex:1;min-width:150px}
+.editor-hoved{flex:1;display:flex;overflow:hidden}
+.editor-panel{
+  width:320px;min-width:280px;background:#fff;border-right:1px solid rgba(34,56,78,.1);
+  padding:22px;overflow-y:auto;
+}
+.editor-panel .felt{margin-bottom:20px}
+.editor-panel label{display:block;font-weight:700;font-size:.88rem;margin-bottom:7px}
+.editor-panel input[type=text],.editor-panel input[type=date],.editor-panel select,.editor-panel textarea{
+  width:100%;padding:10px 12px;border:2px solid var(--linje);border-radius:10px;outline:none;
+}
+.editor-panel input:focus,.editor-panel select:focus,.editor-panel textarea:focus{border-color:var(--himmel)}
+.editor-panel textarea{min-height:110px;resize:vertical}
+.valg-gruppe{display:flex;gap:8px;flex-wrap:wrap}
+.valg-gruppe button{
+  flex:1;min-width:70px;padding:9px 8px;border:2px solid var(--linje);border-radius:10px;
+  background:#fff;font-weight:700;font-size:.85rem;transition:all .12s;
+}
+.valg-gruppe button.aktiv{background:var(--ink);border-color:var(--ink);color:#fff}
+.hint{font-size:.8rem;color:var(--ink-svak);margin-top:6px}
+.editor-visning{flex:1;overflow:auto;display:flex;justify-content:center;padding:34px 20px 60px}
+.ark-holder{position:relative}
+
+/* ---------- selve A4-arket ---------- */
+.ark{
+  width:210mm;min-height:297mm;background:#fff;
+  box-shadow:0 4px 14px rgba(34,56,78,.16),0 18px 44px rgba(34,56,78,.14);
+  border-radius:3px;
+  padding:14mm 16mm;
+  transform-origin:top center;
+  font-family:'Atkinson Hyperlegible',sans-serif;color:var(--ink);
+}
+.ark .ark-topp{display:flex;justify-content:space-between;align-items:flex-end;gap:8mm;margin-bottom:6mm}
+.ark .ark-tittel{font-family:'Fredoka One';font-size:9mm;line-height:1.1}
+.ark .navnefelt{font-size:3.6mm;color:var(--ink-svak);white-space:nowrap}
+.ark .navnefelt span{display:inline-block;border-bottom:1.5px solid var(--ink-svak);width:42mm;margin-left:2mm}
+.ark .trace-row{margin-bottom:0}
+.ark .instruks{font-size:3.8mm;color:var(--ink-svak);margin-bottom:5mm}
+.ark-bunn{position:absolute;bottom:8mm;left:16mm;right:16mm;display:flex;justify-content:space-between;font-size:3mm;color:#B6C0CA}
+.ark{position:relative}
+
+/* diplom */
+.diplom-ramme{
+  border:3mm solid var(--blyant);border-radius:6mm;height:255mm;
+  padding:16mm 14mm;display:flex;flex-direction:column;align-items:center;text-align:center;
+  background:
+    radial-gradient(circle at 8mm 8mm, rgba(242,178,27,.15) 0 14mm, transparent 14mm),
+    radial-gradient(circle at calc(100% - 8mm) calc(100% - 8mm), rgba(94,158,214,.12) 0 14mm, transparent 14mm);
+}
+.diplom-ramme .d-stjerne{font-size:14mm;margin-bottom:4mm}
+.diplom-ramme h2{font-family:'Fredoka One';font-size:13mm;color:var(--korall);letter-spacing:.03em}
+.diplom-ramme .d-til{font-size:4.5mm;color:var(--ink-svak);margin-top:10mm}
+.diplom-ramme .d-navn{font-family:'Fredoka One';font-size:11mm;margin-top:3mm;border-bottom:1px solid var(--linje);padding:0 8mm 2mm}
+.diplom-ramme .d-tekst{font-size:5mm;max-width:130mm;margin-top:10mm;line-height:1.6}
+.diplom-ramme .d-sign{display:flex;gap:22mm;margin-top:auto;width:100%;justify-content:center}
+.diplom-ramme .d-sign div{border-top:1.5px solid var(--ink-svak);padding-top:2mm;font-size:3.6mm;color:var(--ink-svak);width:52mm}
+
+/* skrivepapir */
+.tegnerute{border:1.6px solid var(--linje);border-radius:4mm;height:88mm;margin-bottom:8mm;position:relative}
+.tegnerute::after{content:"✏️ Tegn her";position:absolute;top:3mm;left:4mm;font-size:3.4mm;color:#C3CFDA}
+.skrivelinjer .linje{border-bottom:1.6px solid var(--linje);height:11mm}
+
+/* ---------- responsivt ---------- */
+@media (max-width:860px){
+  .editor-hoved{flex-direction:column}
+  .editor-panel{width:100%;min-width:0;border-right:none;border-bottom:1px solid rgba(34,56,78,.1);max-height:44vh}
+  .hero::before{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  *{transition:none!important;animation:none!important}
+  html{scroll-behavior:auto}
+}
+
+/* ---------- utskrift ---------- */
+@page{size:A4 portrait;margin:0}
+@media print{
+  body{background:#fff}
+  body.printing #landing, body.printing .editor-topp, body.printing .editor-panel{display:none!important}
+  body.printing #editor{position:static;display:block}
+  body.printing .editor-hoved{display:block;overflow:visible}
+  body.printing .editor-visning{padding:0;overflow:visible;display:block}
+  body.printing .ark{
+    transform:none!important;box-shadow:none;border-radius:0;
+    width:210mm;min-height:auto;height:auto;margin:0;
+  }
+  body.printing .ark-bunn{position:fixed}
+}
+</style>
+</head>
+<body>
+
+<!-- ============ LANDINGSSIDE ============ -->
+<div id="landing">
+
+<div class="hero">
+  <div class="wrap">
+    <header class="site">
+      <a class="logo" href="#">
+        <span class="logo-ikon">✏️</span>
+        <span class="logo-navn">Mykje Utskrift<small>Redigerbare arbeidsark for barneskolen</small></span>
+      </a>
+      <nav class="hoved" aria-label="Hovedmeny">
+        <a href="#galleri">Arbeidsark</a>
+        <a href="#slik">Slik virker det</a>
+      </nav>
+    </header>
+
+    <div class="hero-inner">
+      <h1>Skriv inn. <span class="spor-tekst">Spor.</span> Skriv ut.</h1>
+      <p class="ingress">Lag ferdige arbeidsark på sekunder – navnesporing, tall, alfabetet og diplomer. Alt tilpasses direkte i nettleseren, med æ, ø og å selvfølgelig på plass. Helt gratis, ingen innlogging.</p>
+
+      <div class="hero-demo">
+        <label for="demoNavn">Prøv nå – skriv et navn:</label>
+        <div class="demo-rad">
+          <input type="text" id="demoNavn" value="Nora" maxlength="20" autocomplete="off">
+          <button class="knapp primaer-bla" id="demoKnapp">Lag hele arket →</button>
+        </div>
+        <div class="demo-preview">
+          <div class="trace-row stil-graa"><span class="t" id="demoTekst">Nora Nora Nora</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<section class="blokk" id="galleri">
+  <div class="wrap">
+    <div class="seksjon-topp">
+      <h2>Velg et arbeidsark</h2>
+      <p>Alle arkene tilpasses og skrives ut direkte – ingen nedlasting av PDF-er du ikke får endret.</p>
+    </div>
+    <div class="chips" id="chips" role="tablist" aria-label="Kategorier"></div>
+    <div class="galleri" id="galleriGrid"></div>
+  </div>
+</section>
+
+<section class="blokk" id="slik" style="background:#fff;border-top:1px solid rgba(94,158,214,.2)">
+  <div class="wrap">
+    <div class="seksjon-topp"><h2>Slik virker det</h2></div>
+    <div class="steg">
+      <div class="steg-kort">
+        <div class="tall">1</div>
+        <h3>Velg et ark</h3>
+        <p>Finn arbeidsarket som passer – sporing, tall, skrivepapir eller diplom.</p>
+      </div>
+      <div class="steg-kort">
+        <div class="tall">2</div>
+        <h3>Tilpass innholdet</h3>
+        <p>Skriv inn navn eller ord, og velg bokstavstil og størrelse. Forhåndsvisningen oppdateres med en gang.</p>
+      </div>
+      <div class="steg-kort">
+        <div class="tall">3</div>
+        <h3>Skriv ut</h3>
+        <p>Trykk på skriv ut-knappen, så kommer arket ferdig oppsatt på A4 – klart for klasserommet.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="site">
+  <div class="wrap">
+    <span>© 2026 Mykje Utskrift · Laget for norske klasserom</span>
+    <span>Alt lages lokalt i nettleseren din – ingenting lagres eller sendes.</span>
+  </div>
+</footer>
+
+</div><!-- /landing -->
+
+<!-- ============ EDITOR ============ -->
+<div id="editor" role="dialog" aria-modal="true" aria-labelledby="editorTittel">
+  <div class="editor-topp">
+    <button class="knapp sekundaer" id="tilbakeKnapp">← Tilbake</button>
+    <h2 id="editorTittel">Arbeidsark</h2>
+    <button class="knapp primaer-bla" id="printKnapp">🖨️ Skriv ut</button>
+  </div>
+  <div class="editor-hoved">
+    <aside class="editor-panel" id="editorPanel" aria-label="Innstillinger"></aside>
+    <div class="editor-visning" id="editorVisning">
+      <div class="ark-holder"><div class="ark" id="ark"></div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   Mykje Utskrift – all logikk kjører lokalt i nettleseren
+   ============================================================ */
+
+const NBSP = '\u00A0';
+
+/* ---- skrifttyper med egne metrikker ----
+   f  = font-størrelse som andel av radhøyden
+   dy = vertikal justering (andel av radhøyde) så grunnlinjen treffer streken
+   ls = letter-spacing ('0' for kursiv – bokstavene MÅ henge sammen)
+   cw = anslått tegnbredde som andel av font-størrelsen (for radfylling) */
+const FONTS = {
+  trykk: {navn:'Trykkskrift',  family:"'Andika',sans-serif",          f:0.68, dy:0,    ls:'.05em', cw:0.52},
+  stav:  {navn:'Stavskrift',   family:"'Playwrite NO',cursive",       f:0.46, dy:0.10, ls:'0',     cw:0.50},
+  lokke: {navn:'Løkkeskrift',  family:"'Playwrite DK Loopet',cursive",f:0.44, dy:0.11, ls:'0',     cw:0.50},
+};
+const SKRIFT_FELT = {key:'skrift', type:'buttons', label:'Skrifttype', default:'trykk',
+  options:[['trykk','Trykk'],['stav','Stav'],['lokke','Løkke']]};
+
+/* ---- hjelpere for sporingsrader ---- */
+function traceRow(text, h, style, gap, skrift, pad){
+  const ft = FONTS[skrift] || FONTS.trykk;
+  const f = (h * ft.f).toFixed(2);
+  const dy = (h * ft.dy).toFixed(2);
+  return `<div class="trace-row stil-${style}" style="height:${h}mm;margin-bottom:${gap}mm">
+    <span class="t" style="font-family:${ft.family};letter-spacing:${ft.ls};top:${dy}mm;font-size:${f}mm;line-height:${h}mm;padding-left:${pad ?? 2}mm">${esc(text)}</span>
+  </div>`;
+}
+/* gjenta et ord til det (omtrent) fyller radbredden på 178 mm */
+function repeatFill(word, h, skrift){
+  const ft = FONTS[skrift] || FONTS.trykk;
+  const f = h * ft.f;
+  const charW = f * ft.cw;
+  const per = (word.length + 3) * charW;
+  const n = Math.max(1, Math.floor(178 / per));
+  return Array(n).fill(word).join(NBSP + NBSP + ' ');
+}
+/* hvor mange rader får plass på arket? */
+function rowsThatFit(h, gap, brukt){
+  const tilgjengelig = 297 - 28 - brukt;   // 28 mm = marg topp+bunn
+  return Math.max(1, Math.floor(tilgjengelig / (h + gap)));
+}
+function esc(s){return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+
+function arkTopp(tittel, medNavn = true){
+  return `<div class="ark-topp">
+    <div class="ark-tittel">${esc(tittel)}</div>
+    ${medNavn ? `<div class="navnefelt">Navn:<span></span></div>` : ''}
+  </div>`;
+}
+function arkBunn(){
+  return `<div class="ark-bunn"><span>Mykje Utskrift</span><span>mykje.no</span></div>`;
+}
+
+const SIZES = { stor: 17, middels: 13.5, liten: 11 };
+const GAPF = 0.45; // luft mellom rader (andel av radhøyde) – plass til underlengder
+
+/* ============================================================
+   GENERATORER
+   ============================================================ */
+const GENERATORS = {
+
+  navnesporing: {
+    tittel: 'Navnesporing',
+    kat: 'Sporing',
+    beskrivelse: 'Skriv inn navnet, så fylles hele arket med sporingsrader. Perfekt for navnetrening i 1. klasse.',
+    fields: [
+      {key:'navn', type:'text', label:'Navn', default:'Nora', maxlength:20},
+      SKRIFT_FELT,
+      {key:'stil', type:'buttons', label:'Bokstavstil', default:'graa',
+        options:[['graa','Grå'],['omriss','Omriss']]},
+      {key:'str', type:'buttons', label:'Størrelse', default:'stor',
+        options:[['stor','Stor'],['middels','Middels'],['liten','Liten']]},
+      {key:'forste', type:'check', label:'Vis første rad med tydelige bokstaver', default:true},
+      {key:'tomme', type:'check', label:'Annenhver rad tom (skriv selv)', default:false},
+    ],
+    render(s){
+      const navn = s.navn.trim() || 'Nora';
+      const h = SIZES[s.str], gap = h * GAPF;
+      const n = rowsThatFit(h, gap, 20);
+      let rows = '';
+      for(let i = 0; i < n; i++){
+        const tom = s.tomme && i % 2 === 1;
+        const stil = (i === 0 && s.forste) ? 'solid' : s.stil;
+        rows += traceRow(tom ? '' : repeatFill(navn, h, s.skrift), h, stil, gap, s.skrift);
+      }
+      return arkTopp('Jeg heter ' + navn) + `<div class="instruks">Spor navnet ditt. Start øverst til venstre på hver bokstav.</div>` + rows + arkBunn();
+    }
+  },
+
+  ordsporing: {
+    tittel: 'Ordsporing',
+    kat: 'Sporing',
+    beskrivelse: 'Lim inn ukas ord – ett ord per linje – og få et ferdig sporingsark. Fint til norsk og engelsk.',
+    fields: [
+      {key:'ord', type:'textarea', label:'Ord (ett per linje)', default:'sol\nmåne\nstjerne\nhimmel\nregnbue\nsky'},
+      SKRIFT_FELT,
+      {key:'stil', type:'buttons', label:'Bokstavstil', default:'graa',
+        options:[['graa','Grå'],['omriss','Omriss']]},
+      {key:'str', type:'buttons', label:'Størrelse', default:'middels',
+        options:[['stor','Stor'],['middels','Middels'],['liten','Liten']]},
+      {key:'tittel', type:'text', label:'Overskrift på arket', default:'Ukas ord'},
+    ],
+    render(s){
+      const ord = s.ord.split('\n').map(o => o.trim()).filter(Boolean).slice(0, 14);
+      const h = SIZES[s.str], gap = h * GAPF;
+      let rows = ord.map(o => traceRow(repeatFill(o, h, s.skrift), h, s.stil, gap, s.skrift)).join('');
+      return arkTopp(s.tittel || 'Ukas ord') + `<div class="instruks">Spor hvert ord nøye. Klarer du å skrive det uten å se etterpå?</div>` + rows + arkBunn();
+    }
+  },
+
+  alfabet: {
+    tittel: 'Alfabetet A–Å',
+    kat: 'Sporing',
+    beskrivelse: 'Hele det norske alfabetet med æ, ø og å – som store bokstaver, små bokstaver eller begge deler.',
+    fields: [
+      {key:'variant', type:'buttons', label:'Bokstaver', default:'begge',
+        options:[['begge','Aa Bb'],['store','A B'],['sma','a b']]},
+      SKRIFT_FELT,
+      {key:'stil', type:'buttons', label:'Bokstavstil', default:'graa',
+        options:[['graa','Grå'],['omriss','Omriss']]},
+      {key:'ekstra', type:'check', label:'Tomme rader nederst til egen skriving', default:true},
+    ],
+    render(s){
+      const ABC = 'ABCDEFGHIJKLMNOPQRSTUVWXYZÆØÅ'.split('');
+      const h = 14, gap = h * GAPF;
+      const perRad = s.variant === 'begge' ? 5 : 8;
+      const grupper = [];
+      for(let i = 0; i < ABC.length; i += perRad){
+        const del = ABC.slice(i, i + perRad).map(b => {
+          if(s.variant === 'store') return b;
+          if(s.variant === 'sma') return b.toLowerCase();
+          return b + b.toLowerCase();
+        });
+        grupper.push(del.join(NBSP + NBSP + ' '));
+      }
+      let rows = grupper.map(g => traceRow(g, h, s.stil, gap, s.skrift)).join('');
+      if(s.ekstra){
+        const brukt = 20 + grupper.length * (h + gap);
+        const ekstra = rowsThatFit(h, gap, brukt);
+        for(let i = 0; i < ekstra; i++) rows += traceRow('', h, s.stil, gap, s.skrift);
+      }
+      return arkTopp('Alfabetet') + `<div class="instruks">Spor bokstavene fra A til Å.</div>` + rows + arkBunn();
+    }
+  },
+
+  tallsporing: {
+    tittel: 'Tallsporing',
+    kat: 'Tall',
+    beskrivelse: 'Sporingsark for tallene 1–10 eller 11–20. Én rad per tall, gjentatt bortover hele linjen.',
+    fields: [
+      {key:'omrade', type:'buttons', label:'Tallområde', default:'1-10',
+        options:[['1-10','1–10'],['11-20','11–20']]},
+      {key:'stil', type:'buttons', label:'Tallstil', default:'graa',
+        options:[['graa','Grå'],['omriss','Omriss']]},
+      {key:'forste', type:'check', label:'Første tall på raden vises tydelig', default:true},
+    ],
+    render(s){
+      const start = s.omrade === '1-10' ? 1 : 11;
+      const h = 15, gap = h * GAPF;
+      const f = (h * 0.68).toFixed(2);
+      let rows = '';
+      for(let t = start; t < start + 10; t++){
+        const tekst = repeatFill(String(t), h);
+        if(s.forste){
+          const deler = tekst.split(NBSP + NBSP + ' ');
+          const rest = deler.slice(1).join(NBSP + NBSP + ' ');
+          rows += `<div class="trace-row stil-${s.stil}" style="height:${h}mm;margin-bottom:${gap}mm">
+            <span class="t" style="font-size:${f}mm;line-height:${h}mm;padding-left:2mm"><span style="color:var(--ink);-webkit-text-stroke:0">${esc(deler[0])}</span>${NBSP}${NBSP} ${esc(rest)}</span></div>`;
+        } else {
+          rows += traceRow(tekst, h, s.stil, gap);
+        }
+      }
+      return arkTopp('Tallene ' + (s.omrade === '1-10' ? '1–10' : '11–20')) +
+        `<div class="instruks">Spor tallene. Husk å starte øverst.</div>` + rows + arkBunn();
+    }
+  },
+
+  ukedager: {
+    tittel: 'Ukedagene',
+    kat: 'Sporing',
+    beskrivelse: 'Spor ukedagene fra mandag til søndag – med liten forbokstav, slik vi skriver dem på norsk.',
+    fields: [
+      SKRIFT_FELT,
+      {key:'stor', type:'check', label:'Stor forbokstav', default:false},
+      {key:'stil', type:'buttons', label:'Bokstavstil', default:'graa',
+        options:[['graa','Grå'],['omriss','Omriss']]},
+    ],
+    render(s){
+      const dager = ['mandag','tirsdag','onsdag','torsdag','fredag','lørdag','søndag']
+        .map(d => s.stor ? d[0].toUpperCase() + d.slice(1) : d);
+      const h = 14.5, gap = h * GAPF;
+      let rows = dager.map(d => traceRow(repeatFill(d, h, s.skrift), h, s.stil, gap, s.skrift)).join('');
+      return arkTopp('Ukedagene') + `<div class="instruks">Spor ukedagene i riktig rekkefølge. Hvilken dag er det i dag?</div>` + rows + arkBunn();
+    }
+  },
+
+  maneder: {
+    tittel: 'Månedene',
+    kat: 'Sporing',
+    beskrivelse: 'Alle tolv månedene fra januar til desember på ett sporingsark.',
+    fields: [
+      SKRIFT_FELT,
+      {key:'stil', type:'buttons', label:'Bokstavstil', default:'graa',
+        options:[['graa','Grå'],['omriss','Omriss']]},
+    ],
+    render(s){
+      const mnd = ['januar','februar','mars','april','mai','juni','juli','august','september','oktober','november','desember'];
+      const h = 11.5, gap = h * 0.4;
+      let rows = mnd.map(m => traceRow(repeatFill(m, h, s.skrift), h, s.stil, gap, s.skrift)).join('');
+      return arkTopp('Månedene') + `<div class="instruks">Spor månedene. Sett ring rundt måneden du har bursdag i!</div>` + rows + arkBunn();
+    }
+  },
+
+  skrivepapir: {
+    tittel: 'Fortellingsark',
+    kat: 'Skriving',
+    beskrivelse: 'Skrivepapir med tegnerute og linjer. Sett inn din egen startsetning eller la det stå tomt.',
+    fields: [
+      {key:'tittel', type:'text', label:'Overskrift', default:'Min fortelling'},
+      {key:'start', type:'text', label:'Startsetning (valgfri)', default:'Det var en gang …'},
+      {key:'rute', type:'check', label:'Tegnerute øverst', default:true},
+      {key:'str', type:'buttons', label:'Linjehøyde', default:'middels',
+        options:[['stor','Stor'],['middels','Middels'],['liten','Liten']]},
+    ],
+    render(s){
+      const lh = {stor:14, middels:11, liten:9}[s.str];
+      const brukt = 20 + (s.rute ? 96 : 0) + (s.start ? 10 : 0);
+      const n = Math.max(3, Math.floor((297 - 28 - brukt) / lh));
+      let ut = arkTopp(s.tittel || 'Min fortelling');
+      if(s.rute) ut += `<div class="tegnerute"></div>`;
+      if(s.start) ut += `<div style="font-family:'Andika';font-size:5.5mm;color:var(--ink);margin-bottom:2mm">${esc(s.start)}</div>`;
+      ut += `<div class="skrivelinjer">`;
+      for(let i = 0; i < n; i++) ut += `<div class="linje" style="height:${lh}mm"></div>`;
+      ut += `</div>`;
+      return ut + arkBunn();
+    }
+  },
+
+  diplom: {
+    tittel: 'Diplom',
+    kat: 'Diplom',
+    beskrivelse: 'Redigerbart diplom med navn, begrunnelse og dato – klar til høytidelig overrekkelse.',
+    fields: [
+      {key:'emoji', type:'buttons', label:'Symbol', default:'⭐',
+        options:[['⭐','⭐'],['🏆','🏆'],['🎉','🎉'],['🦉','🦉'],['💪','💪']]},
+      {key:'tittel', type:'text', label:'Tittel', default:'Diplom'},
+      {key:'navn', type:'text', label:'Tildeles', default:'Nora Nordmann'},
+      {key:'tekst', type:'textarea', label:'Begrunnelse',
+        default:'for strålende innsats med lesing denne perioden. Du har vist utholdenhet, godt humør og stor fremgang!'},
+      {key:'dato', type:'text', label:'Sted og dato', default:'Kopervik, ' + new Date().toLocaleDateString('nb-NO', {day:'numeric', month:'long', year:'numeric'})},
+    ],
+    render(s){
+      return `<div class="diplom-ramme">
+        <div class="d-stjerne">${esc(s.emoji)}</div>
+        <h2>${esc(s.tittel || 'Diplom')}</h2>
+        <div class="d-til">tildeles</div>
+        <div class="d-navn">${esc(s.navn || ' ')}</div>
+        <div class="d-tekst">${esc(s.tekst)}</div>
+        <div class="d-sign">
+          <div>${esc(s.dato)}</div>
+          <div>Underskrift</div>
+        </div>
+      </div>` + arkBunn();
+    }
+  },
+};
+
+/* ============================================================
+   LANDINGSSIDE: kategorier + galleri med levende miniatyrer
+   ============================================================ */
+const KATEGORIER = ['Alle', 'Sporing', 'Tall', 'Skriving', 'Diplom'];
+let aktivKat = 'Alle';
+
+function byggChips(){
+  const c = document.getElementById('chips');
+  c.innerHTML = KATEGORIER.map(k =>
+    `<button class="chip ${k === aktivKat ? 'aktiv' : ''}" data-kat="${k}" role="tab" aria-selected="${k === aktivKat}">${k}</button>`
+  ).join('');
+  c.querySelectorAll('.chip').forEach(b => b.addEventListener('click', () => {
+    aktivKat = b.dataset.kat; byggChips(); byggGalleri();
+  }));
+}
+
+function byggGalleri(){
+  const g = document.getElementById('galleriGrid');
+  g.innerHTML = '';
+  Object.entries(GENERATORS).forEach(([id, gen]) => {
+    if(aktivKat !== 'Alle' && gen.kat !== aktivKat) return;
+    const kort = document.createElement('button');
+    kort.className = 'kort';
+    kort.setAttribute('aria-label', 'Åpne ' + gen.tittel);
+    kort.innerHTML = `
+      <div class="kort-thumb"><div class="ark mini-ark"></div></div>
+      <div class="kort-body">
+        <span class="kort-kat">${gen.kat}</span>
+        <h3>${gen.tittel}</h3>
+        <p>${gen.beskrivelse}</p>
+        <span class="kort-cta">Tilpass og skriv ut →</span>
+      </div>`;
+    /* levende miniatyr: render arket med standardverdier */
+    const defaults = {};
+    gen.fields.forEach(f => defaults[f.key] = f.default);
+    kort.querySelector('.mini-ark').innerHTML = gen.render(defaults);
+    kort.addEventListener('click', () => aapneEditor(id));
+    g.appendChild(kort);
+  });
+}
+
+/* ============================================================
+   EDITOR
+   ============================================================ */
+let aktivGen = null;
+let state = {};
+
+function aapneEditor(id, overstyr = {}){
+  aktivGen = id;
+  const gen = GENERATORS[id];
+  state = {};
+  gen.fields.forEach(f => state[f.key] = overstyr[f.key] !== undefined ? overstyr[f.key] : f.default);
+  document.getElementById('editorTittel').textContent = gen.tittel;
+  byggPanel(gen);
+  renderArk();
+  document.getElementById('editor').classList.add('open');
+  document.getElementById('landing').style.display = 'none';
+  window.scrollTo(0, 0);
+  skalerArk();
+}
+
+function lukkEditor(){
+  document.getElementById('editor').classList.remove('open');
+  document.getElementById('landing').style.display = '';
+}
+
+function byggPanel(gen){
+  const p = document.getElementById('editorPanel');
+  p.innerHTML = '';
+  gen.fields.forEach(f => {
+    const felt = document.createElement('div');
+    felt.className = 'felt';
+    if(f.type === 'text'){
+      felt.innerHTML = `<label for="f_${f.key}">${f.label}</label>
+        <input type="text" id="f_${f.key}" value="${esc(state[f.key])}" ${f.maxlength ? `maxlength="${f.maxlength}"` : ''}>`;
+      felt.querySelector('input').addEventListener('input', e => { state[f.key] = e.target.value; renderArk(); });
+    }
+    else if(f.type === 'textarea'){
+      felt.innerHTML = `<label for="f_${f.key}">${f.label}</label><textarea id="f_${f.key}">${esc(state[f.key])}</textarea>`;
+      felt.querySelector('textarea').addEventListener('input', e => { state[f.key] = e.target.value; renderArk(); });
+    }
+    else if(f.type === 'buttons'){
+      felt.innerHTML = `<label>${f.label}</label><div class="valg-gruppe">` +
+        f.options.map(([v, l]) => `<button data-v="${esc(v)}" class="${state[f.key] === v ? 'aktiv' : ''}">${esc(l)}</button>`).join('') +
+        `</div>`;
+      felt.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+        state[f.key] = b.dataset.v;
+        felt.querySelectorAll('button').forEach(x => x.classList.toggle('aktiv', x === b));
+        renderArk();
+      }));
+    }
+    else if(f.type === 'check'){
+      felt.innerHTML = `<label style="display:flex;gap:9px;align-items:center;cursor:pointer;font-weight:700">
+        <input type="checkbox" ${state[f.key] ? 'checked' : ''} style="width:19px;height:19px;accent-color:var(--himmel)"> ${f.label}</label>`;
+      felt.querySelector('input').addEventListener('change', e => { state[f.key] = e.target.checked; renderArk(); });
+    }
+    p.appendChild(felt);
+  });
+  const tips = document.createElement('p');
+  tips.className = 'hint';
+  tips.textContent = 'Forhåndsvisningen oppdateres mens du skriver. Trykk «Skriv ut» når arket er klart.';
+  p.appendChild(tips);
+}
+
+function renderArk(){
+  document.getElementById('ark').innerHTML = GENERATORS[aktivGen].render(state);
+}
+
+/* skaler A4-arket så det passer i vinduet */
+function skalerArk(){
+  const visning = document.getElementById('editorVisning');
+  const holder = visning.querySelector('.ark-holder');
+  const ark = document.getElementById('ark');
+  const bredde = visning.clientWidth - 40;
+  const arkPx = ark.offsetWidth || 794;
+  const skala = Math.min(1, bredde / arkPx);
+  ark.style.transform = `scale(${skala})`;
+  holder.style.width = arkPx * skala + 'px';
+  holder.style.height = (ark.offsetHeight || 1123) * skala + 'px';
+}
+window.addEventListener('resize', () => { if(document.getElementById('editor').classList.contains('open')) skalerArk(); });
+
+/* utskrift */
+document.getElementById('printKnapp').addEventListener('click', () => {
+  document.body.classList.add('printing');
+  window.print();
+});
+window.addEventListener('afterprint', () => document.body.classList.remove('printing'));
+document.getElementById('tilbakeKnapp').addEventListener('click', lukkEditor);
+document.addEventListener('keydown', e => {
+  if(e.key === 'Escape' && document.getElementById('editor').classList.contains('open')) lukkEditor();
+});
+
+/* ============================================================
+   HERO-DEMO
+   ============================================================ */
+const demoInput = document.getElementById('demoNavn');
+function oppdaterDemo(){
+  const navn = demoInput.value.trim() || 'Nora';
+  const n = Math.max(1, Math.min(6, Math.floor(24 / (navn.length + 2))));
+  document.getElementById('demoTekst').textContent = Array(n).fill(navn).join(NBSP + NBSP + ' ');
+}
+demoInput.addEventListener('input', oppdaterDemo);
+document.getElementById('demoKnapp').addEventListener('click', () => {
+  aapneEditor('navnesporing', {navn: demoInput.value.trim() || 'Nora'});
+});
+demoInput.addEventListener('keydown', e => { if(e.key === 'Enter') document.getElementById('demoKnapp').click(); });
+
+/* ---- start ---- */
+byggChips();
+byggGalleri();
+oppdaterDemo();
+</script>
+</body>
+</html>
