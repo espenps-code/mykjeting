@@ -111,7 +111,6 @@ header.hero{
 /* demo-forhåndsvisningen rett under søkefeltet */
 .demo-preview{max-width:1120px;margin:0 auto;padding:calc(30px + 22px) 22px 0}
 .demo-preview .trace-row{height:64px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
-.demo-preview .trace-row .t{font-size:43px;line-height:64px;padding-left:20px}
 
 /* ---------- knapper (brukes i editor/print) ---------- */
 .knapp{
@@ -125,7 +124,10 @@ header.hero{
 .knapp.sekundaer:hover{border-color:var(--ink)}
 .knapp.primaer-bla{background:var(--himmel);color:#fff}
 
-/* ---------- sporingsrader (brukes i demo, ark og miniatyrer) ---------- */
+/* ---------- sporingsrader (brukes i demo, ark og miniatyrer) ----------
+   Bokstavene tegnes som SVG-tekst i staden for vanleg HTML-tekst: SVG sitt
+   y-attributt ER grunnlinja til bokstaven, heilt presist, uansett skrifttype
+   og nettlesar. Det slepp vi unna gjetting med line-height/font-metrikk. */
 .trace-row{
   position:relative;
   background:
@@ -136,15 +138,11 @@ header.hero{
   content:"";position:absolute;left:0;right:0;top:45%;
   border-top:1.4px dashed var(--linje);
 }
-.trace-row .t{
-  display:block;position:relative;z-index:1;
-  font-family:'Andika',sans-serif;
-  white-space:nowrap;overflow:hidden;
-  letter-spacing:.05em;
-}
-.trace-row.stil-graa .t{color:var(--spor)}
-.trace-row.stil-omriss .t{color:transparent;-webkit-text-stroke:1.5px #9FAEBD}
-.trace-row.stil-solid .t{color:var(--ink)}
+.trace-row svg.t-svg{position:relative;z-index:1;display:block;width:100%;height:100%}
+.trace-row svg.t-svg text{white-space:pre}
+.trace-row.stil-graa svg.t-svg text{fill:var(--spor);stroke:none}
+.trace-row.stil-omriss svg.t-svg text{fill:none;stroke:#9FAEBD;stroke-width:1.1}
+.trace-row.stil-solid svg.t-svg text{fill:var(--ink);stroke:none}
 
 /* ---------- seksjoner ---------- */
 section.blokk{padding:56px 0}
@@ -341,7 +339,11 @@ footer.site .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:
   </div>
 
   <div class="demo-preview">
-    <div class="trace-row stil-graa"><span class="t" id="demoTekst">Nora Nora Nora</span></div>
+    <div class="trace-row stil-graa">
+      <svg class="t-svg" id="demoSvg" viewBox="0 0 600 64" preserveAspectRatio="none">
+        <text id="demoTekst" x="20" y="46.72" font-family="'Andika',sans-serif" font-size="43" style="letter-spacing:.05em">Nora Nora Nora</text>
+      </svg>
+    </div>
   </div>
 </header>
 
@@ -416,20 +418,29 @@ const NBSP = '\u00A0';
    ls = letter-spacing ('0' for kursiv – bokstavene MÅ henge sammen)
    cw = anslått tegnbredde som andel av font-størrelsen (for radfylling) */
 const FONTS = {
-  trykk: {navn:'Trykkskrift',  family:"'Andika',sans-serif",          f:0.68, dy:0,    ls:'.05em', cw:0.52},
-  stav:  {navn:'Stavskrift',   family:"'Playwrite NO',cursive",       f:0.46, dy:0.10, ls:'0',     cw:0.50},
-  lokke: {navn:'Løkkeskrift',  family:"'Playwrite DK Loopet',cursive",f:0.44, dy:0.11, ls:'0',     cw:0.50},
+  trykk: {navn:'Trykkskrift',  family:"'Andika',sans-serif",          f:0.68, ls:'.05em', cw:0.52},
+  stav:  {navn:'Stavskrift',   family:"'Playwrite NO',cursive",       f:0.46, ls:'0',     cw:0.50},
+  lokke: {navn:'Løkkeskrift',  family:"'Playwrite DK Loopet',cursive",f:0.44, ls:'0',     cw:0.50},
 };
+const BASISLINJE = 0.73; // samme andel som den nederste streken i .trace-row-bakgrunnen (0 73%)
 const SKRIFT_FELT = {key:'skrift', type:'buttons', label:'Skrifttype', default:'trykk',
   options:[['trykk','Trykk'],['stav','Stav'],['lokke','Løkke']]};
 
-/* ---- hjelpere for sporingsrader ---- */
+const RAD_BREDDE = 178; // mm innhaldsbredde i arket (210mm ark − 2×16mm marg)
+
+/* ---- hjelpere for sporingsrader ----
+   Bokstavene teiknast som SVG-tekst: SVG sitt y-attributt ER grunnlinja til
+   bokstaven, heilt presist, uansett skrifttype/nettlesar-metrikk. viewBox er
+   sett til 178×h (same tal som den fysiske mm-breidda/høgda på raden), så
+   1 SVG-eining = 1 mm og ingenting blir strekt eller forvrengt. */
 function traceRow(text, h, style, gap, skrift, pad){
   const ft = FONTS[skrift] || FONTS.trykk;
   const f = (h * ft.f).toFixed(2);
-  const dy = (h * ft.dy).toFixed(2);
+  const grunnlinje = (h * BASISLINJE).toFixed(2);
   return `<div class="trace-row stil-${style}" style="height:${h}mm;margin-bottom:${gap}mm">
-    <span class="t" style="font-family:${ft.family};letter-spacing:${ft.ls};top:${dy}mm;font-size:${f}mm;line-height:${h}mm;padding-left:${pad ?? 2}mm">${esc(text)}</span>
+    <svg class="t-svg" viewBox="0 0 ${RAD_BREDDE} ${h}" preserveAspectRatio="none">
+      <text x="${pad ?? 2}" y="${grunnlinje}" font-family="${ft.family}" font-size="${f}" style="letter-spacing:${ft.ls}">${esc(text)}</text>
+    </svg>
   </div>`;
 }
 /* gjenta et ord til det (omtrent) fyller radbredden på 178 mm */
@@ -438,7 +449,7 @@ function repeatFill(word, h, skrift){
   const f = h * ft.f;
   const charW = f * ft.cw;
   const per = (word.length + 3) * charW;
-  const n = Math.max(1, Math.floor(178 / per));
+  const n = Math.max(1, Math.floor(RAD_BREDDE / per));
   return Array(n).fill(word).join(NBSP + NBSP + ' ');
 }
 /* hvor mange rader får plass på arket? */
@@ -565,6 +576,7 @@ const GENERATORS = {
       const start = s.omrade === '1-10' ? 1 : 11;
       const h = 15, gap = h * GAPF;
       const f = (h * 0.68).toFixed(2);
+      const grunnlinje = (h * BASISLINJE).toFixed(2);
       let rows = '';
       for(let t = start; t < start + 10; t++){
         const tekst = repeatFill(String(t), h);
@@ -572,7 +584,9 @@ const GENERATORS = {
           const deler = tekst.split(NBSP + NBSP + ' ');
           const rest = deler.slice(1).join(NBSP + NBSP + ' ');
           rows += `<div class="trace-row stil-${s.stil}" style="height:${h}mm;margin-bottom:${gap}mm">
-            <span class="t" style="font-size:${f}mm;line-height:${h}mm;padding-left:2mm"><span style="color:var(--ink);-webkit-text-stroke:0">${esc(deler[0])}</span>${NBSP}${NBSP} ${esc(rest)}</span></div>`;
+            <svg class="t-svg" viewBox="0 0 ${RAD_BREDDE} ${h}" preserveAspectRatio="none">
+              <text x="2" y="${grunnlinje}" font-family="'Andika',sans-serif" font-size="${f}"><tspan style="fill:var(--ink);stroke:none">${esc(deler[0])}</tspan>${NBSP}${NBSP} ${esc(rest)}</text>
+            </svg></div>`;
         } else {
           rows += traceRow(tekst, h, s.stil, gap);
         }
@@ -814,6 +828,22 @@ document.addEventListener('keydown', e => {
    HERO-DEMO
    ============================================================ */
 const demoInput = document.getElementById('demoNavn');
+
+/* SVG-en sitt viewBox blir sett til den faktiske px-storleiken til boksen,
+   så y=grunnlinje/font-size alltid stemmer nøyaktig, uansett skjermbredde. */
+function demoSvgResize(){
+  const svg = document.getElementById('demoSvg');
+  if(!svg) return;
+  const w = svg.clientWidth, h = svg.clientHeight;
+  if(!w || !h) return;
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  const tekst = document.getElementById('demoTekst');
+  tekst.setAttribute('y', (h * BASISLINJE).toFixed(2));
+  tekst.setAttribute('font-size', (h * 0.68).toFixed(2));
+}
+let demoReflowT;
+window.addEventListener('resize', () => { clearTimeout(demoReflowT); demoReflowT = setTimeout(demoSvgResize, 120); });
+
 function oppdaterDemo(){
   const navn = demoInput.value.trim() || 'Nora';
   const n = Math.max(1, Math.min(6, Math.floor(24 / (navn.length + 2))));
@@ -829,6 +859,7 @@ demoInput.addEventListener('keydown', e => { if(e.key === 'Enter') document.getE
 byggChips();
 byggGalleri();
 oppdaterDemo();
+demoSvgResize();
 </script>
 </body>
 </html>
