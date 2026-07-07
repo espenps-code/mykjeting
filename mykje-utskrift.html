@@ -413,20 +413,26 @@ footer.site .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:
 const NBSP = '\u00A0';
 
 /* ---- skrifttyper med egne metrikker ----
-   f  = font-størrelse som andel av radhøyden
-   dy = vertikal justering (andel av radhøyde) så grunnlinjen treffer streken
-   ls = letter-spacing ('0' for kursiv – bokstavene MÅ henge sammen)
-   cw = anslått tegnbredde som andel av font-størrelsen (for radfylling) */
+   cap = versalhøgd som andel av font-størrelsen (typisk 0.60–0.75 avhengig av
+         skrift). Styrer kor stor skrifta blir: vi reknar ut font-storleiken
+         slik at STORE bokstavar akkurat når opp til den øvste streken (taket).
+   ls  = letter-spacing ('0' for kursiv – bokstavene MÅ henge sammen)
+   cw  = anslått tegnbredde som andel av font-størrelsen (for radfylling) */
 const FONTS = {
-  trykk: {navn:'Trykkskrift',  family:"'Andika',sans-serif",          f:0.68, ls:'.05em', cw:0.52},
-  stav:  {navn:'Stavskrift',   family:"'Playwrite NO',cursive",       f:0.46, ls:'0',     cw:0.50},
-  lokke: {navn:'Løkkeskrift',  family:"'Playwrite DK Loopet',cursive",f:0.44, ls:'0',     cw:0.50},
+  trykk: {navn:'Trykkskrift',  family:"'Andika',sans-serif",          cap:0.70, ls:'.05em', cw:0.52},
+  stav:  {navn:'Stavskrift',   family:"'Playwrite NO',cursive",       cap:0.66, ls:'0',     cw:0.50},
+  lokke: {navn:'Løkkeskrift',  family:"'Playwrite DK Loopet',cursive",cap:0.60, ls:'0',     cw:0.50},
 };
-const BASISLINJE = 0.73; // samme andel som den nederste streken i .trace-row-bakgrunnen (0 73%)
+const BASISLINJE = 0.73; // andel frå toppen der grunnlinja (nederste, tjukke streken) ligg – matcher CSS "0 73%"
+const TOPLINJE = 0.18;   // andel frå toppen der "taket" (øvste streken, versal-guiden) ligg – matcher CSS "0 18%"
 const SKRIFT_FELT = {key:'skrift', type:'buttons', label:'Skrifttype', default:'trykk',
   options:[['trykk','Trykk'],['stav','Stav'],['lokke','Løkke']]};
 
 const RAD_BREDDE = 178; // mm innhaldsbredde i arket (210mm ark − 2×16mm marg)
+
+/* font-storleik (mm) for ei gitt radhøgd, rekna ut så versalhøgda akkurat
+   fyller avstanden frå taket til grunnlinja */
+function fontStorrelse(h, ft){ return h * (BASISLINJE - TOPLINJE) / ft.cap; }
 
 /* ---- hjelpere for sporingsrader ----
    Bokstavene teiknast som SVG-tekst: SVG sitt y-attributt ER grunnlinja til
@@ -435,7 +441,7 @@ const RAD_BREDDE = 178; // mm innhaldsbredde i arket (210mm ark − 2×16mm marg
    1 SVG-eining = 1 mm og ingenting blir strekt eller forvrengt. */
 function traceRow(text, h, style, gap, skrift, pad){
   const ft = FONTS[skrift] || FONTS.trykk;
-  const f = (h * ft.f).toFixed(2);
+  const f = fontStorrelse(h, ft).toFixed(2);
   const grunnlinje = (h * BASISLINJE).toFixed(2);
   return `<div class="trace-row stil-${style}" style="height:${h}mm;margin-bottom:${gap}mm">
     <svg class="t-svg" viewBox="0 0 ${RAD_BREDDE} ${h}" preserveAspectRatio="none">
@@ -446,7 +452,7 @@ function traceRow(text, h, style, gap, skrift, pad){
 /* gjenta et ord til det (omtrent) fyller radbredden på 178 mm */
 function repeatFill(word, h, skrift){
   const ft = FONTS[skrift] || FONTS.trykk;
-  const f = h * ft.f;
+  const f = fontStorrelse(h, ft);
   const charW = f * ft.cw;
   const per = (word.length + 3) * charW;
   const n = Math.max(1, Math.floor(RAD_BREDDE / per));
@@ -575,7 +581,7 @@ const GENERATORS = {
     render(s){
       const start = s.omrade === '1-10' ? 1 : 11;
       const h = 15, gap = h * GAPF;
-      const f = (h * 0.68).toFixed(2);
+      const f = fontStorrelse(h, FONTS.trykk).toFixed(2);
       const grunnlinje = (h * BASISLINJE).toFixed(2);
       let rows = '';
       for(let t = start; t < start + 10; t++){
@@ -839,7 +845,7 @@ function demoSvgResize(){
   svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
   const tekst = document.getElementById('demoTekst');
   tekst.setAttribute('y', (h * BASISLINJE).toFixed(2));
-  tekst.setAttribute('font-size', (h * 0.68).toFixed(2));
+  tekst.setAttribute('font-size', fontStorrelse(h, FONTS.trykk).toFixed(2));
 }
 let demoReflowT;
 window.addEventListener('resize', () => { clearTimeout(demoReflowT); demoReflowT = setTimeout(demoSvgResize, 120); });
