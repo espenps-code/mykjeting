@@ -257,6 +257,12 @@
   .mattoolbar{display:none}
   #materiell{display:none}
   body.vis-materiell .toolbar,body.vis-materiell #catalog{display:none}
+  /* samlesøk: skjul fag-piller, vis begge seksjonar i #catalog */
+  body.sok-alt .toolbar,body.sok-alt .mattoolbar,body.sok-alt #materiell{display:none!important}
+  body.sok-alt #catalog{display:block}
+  .so-btn .so-tal{opacity:.65;font-weight:800;font-size:12.5px}
+  .so-btn[aria-pressed="true"] .so-tal{opacity:.8}
+  .so-btn.tom{opacity:.45}
   body.vis-materiell .mattoolbar{display:flex}
   body.vis-materiell #materiell{display:block}
   body.view-detail .tabs,body.view-detail .mattoolbar,body.view-detail #materiell{display:none}
@@ -671,7 +677,8 @@
       </div>
       <div class="sok-omfang" id="sokOmfang" style="display:none">
         <span class="so-label">Søk i:</span>
-        <button class="so-btn" type="button" data-omf="ting" aria-pressed="true">📦 Ting</button>
+        <button class="so-btn" type="button" data-omf="alle" aria-pressed="true">🔎 Alt</button>
+        <button class="so-btn" type="button" data-omf="ting" aria-pressed="false">📦 Ting</button>
         <button class="so-btn" type="button" data-omf="materiell" aria-pressed="false">📄 Materiell</button>
       </div>
       <button class="backlink" id="back" type="button">← Tilbake til oversikten</button>
@@ -1119,9 +1126,20 @@ async function saveItem(data,id){
     else items.push({id:"l"+Date.now(),...data});
     render(); renderMateriell(); return;
   }
+  // Flytt base64-forside til Storage så databasen holdes lett (sparer datatrafikk)
+  if(data.bilde && data.bilde.indexOf("data:")===0 && storage){
+    try{ data.bilde = await lastOppForside(data.bilde, data.navn); }catch(e){ console.warn("forside-opplasting feila",e); }
+  }
   data.oppdatert=firebase.firestore.FieldValue.serverTimestamp();
   if(id) await db.collection(COLLECTION).doc(id).set(data,{merge:true});
   else await db.collection(COLLECTION).add(data);
+}
+async function lastOppForside(dataUrl, navn){
+  const blob=await (await fetch(dataUrl)).blob();
+  const safe=String(navn||"forside").replace(/[^\w.\-]+/g,"_").slice(0,40);
+  const path="thumbs/"+Date.now()+"_"+Math.random().toString(36).slice(2,7)+"_"+safe+".jpg";
+  const snap=await storage.ref().child(path).put(blob,{contentType:blob.type||"image/jpeg"});
+  return await snap.ref.getDownloadURL();
 }
 async function deleteItem(id){
   if(demoMode){items=items.filter(x=>x.id!==id);render();renderMateriell();return}
@@ -1369,6 +1387,53 @@ function renderMateriell(){
   });
   wireMat(root);
 }
+/* ---- SAMLESØK: ting + utskriftsmateriell i same treffliste ---- */
+function matchesMat(it){
+  if(!query) return false;
+  const hayTekst=[it.navn,it.skildring,it.gruppe,(it.fag||[]).join(" "),(it.tema||[]).join(" "),
+    ...(it.filer||[]).map(f=>f.navn||f.tittel||"")].join(" ").toLowerCase();
+  const hayStammer=ordliste(hayTekst).map(stemW);
+  const qOrd=ordliste(query);
+  if(!qOrd.length) return false;
+  return qOrd.every(qw=>{
+    if(hayTekst.includes(qw)) return true;
+    const qs=stemW(qw);
+    return hayStammer.some(hs=>{
+      if(!hs||!qs) return false;
+      return qs===hs || (qs.length>=3 && hs.startsWith(qs)) || (hs.length>=3 && qs.startsWith(hs));
+    });
+  });
+}
+function treffTal(){
+  if(!query) return {ting:0,materiell:0};
+  const t=items.filter(i=>i.type!=='materiell' && (activeFag==="*"||(i.fag||[]).includes(activeFag)) && matches(i)).length;
+  const m=items.filter(i=>i.type==='materiell' && matchesMat(i)).length;
+  return {ting:t,materiell:m};
+}
+function renderAlle(){
+  const root=$("#catalog"); if(!root) return;
+  const ting=items.filter(i=>i.type!=='materiell' && matches(i));
+  const mat=items.filter(i=>i.type==='materiell' && matchesMat(i));
+  if(!ting.length && !mat.length){
+    root.innerHTML=`<div class="empty"><div class="big">🔍</div>
+      <strong>Fant ingen treff.</strong><br>Prøv et annet søkeord.</div>`;
+    return;
+  }
+  let html="";
+  if(ting.length){
+    html+=`<div class="group-head"><span class="bar" style="--gc:#3E7C59"></span>
+      <h2>📦 Ting</h2><span class="count">${ting.length}</span><span class="rule"></span></div>
+      <div class="grid">${ting.map(it=>cardHTML(it)).join('')}</div>`;
+  }
+  if(mat.length){
+    html+=`<div class="group-head"><span class="bar" style="--gc:#9C5BA8"></span>
+      <h2>📄 Utskriftsmateriell</h2><span class="count">${mat.length}</span><span class="rule"></span></div>
+      <div class="mat-grid">${mat.map(it=>matCardHTML(it)).join('')}</div>`;
+  }
+  root.innerHTML=html;
+  $$(".card",root).forEach(b=>b.onclick=()=>openDetail(b.dataset.id));
+  wireMat(root);
+}
 function byttVisning(v){
   aktivVisning=v;
   aktivGruppe=null;
@@ -1376,6 +1441,7 @@ function byttVisning(v){
   // nullstill søk ved fanebytte
   const _si=$("#search"); if(_si){ _si.value=""; query=""; const _cb=$("#clearSearch"); if(_cb)_cb.classList.remove("show"); }
   søkTom=true; const _so=$("#sokOmfang"); if(_so) _so.style.display="none";
+  document.body.classList.remove("sok-alt");
   document.body.classList.toggle("vis-materiell", v==='materiell');
   $("#tabTing").setAttribute("aria-pressed", v==='ting');
   $("#tabMat").setAttribute("aria-pressed", v==='materiell');
@@ -2059,21 +2125,35 @@ $("#deleteThing").onclick=async()=>{
 
 /* søk – med valg av omfang (ting / utskriftsmateriell) */
 const si=$("#search"),cb=$("#clearSearch");
-let søkOmfang="ting", søkTom=true;
+let søkOmfang="alle", søkTom=true;
 function visScope(v){ const so=$("#sokOmfang"); if(so) so.style.display=v?"":"none"; }
 function tegnOmfang(){
-  $$("#sokOmfang [data-omf]").forEach(b=>b.setAttribute("aria-pressed", String(b.dataset.omf===søkOmfang)));
+  if(søkOmfang==="alle") activeFag="*";   // fag-piller er skjult i samlesøk
+  const tal=treffTal();
+  $$("#sokOmfang [data-omf]").forEach(b=>{
+    const o=b.dataset.omf;
+    b.setAttribute("aria-pressed", String(o===søkOmfang));
+    const n = o==="alle" ? tal.ting+tal.materiell : (o==="ting"?tal.ting:tal.materiell);
+    let sp=b.querySelector(".so-tal");
+    if(!sp){ sp=document.createElement("span"); sp.className="so-tal"; b.appendChild(sp); }
+    sp.textContent=" "+n;
+    b.classList.toggle("tom", n===0);
+  });
+  document.body.classList.toggle("sok-alt", søkOmfang==="alle");
   document.body.classList.toggle("vis-materiell", søkOmfang==="materiell");
-  if(søkOmfang==="materiell") renderMateriell(); else render();
+  if(søkOmfang==="alle") renderAlle();
+  else if(søkOmfang==="materiell") renderMateriell();
+  else render();
 }
 function søk(){
   query=si.value.trim(); cb.classList.toggle("show",!!query);
   if(document.body.classList.contains("view-detail")) closeDetail();
   if(query){
-    if(søkTom) søkOmfang=aktivVisning;   // start søket i fana du står i
+    if(søkTom) søkOmfang="alle";   // nytt søk: vis treff i både ting og materiell
     søkTom=false; visScope(true); tegnOmfang();
   }else{
     søkTom=true; visScope(false);
+    document.body.classList.remove("sok-alt");
     document.body.classList.toggle("vis-materiell", aktivVisning==="materiell");
     if(aktivVisning==="materiell") renderMateriell(); else render();
   }
