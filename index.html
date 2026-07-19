@@ -9,6 +9,11 @@
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="apple-touch-icon" href="favicon.svg">
 
+<!-- Forvarm tilkoplingane til Firebase så fyrste lasting går raskare -->
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
+<link rel="preconnect" href="https://firebasestorage.googleapis.com" crossorigin>
+
 <!-- Skrifter: Bricolage Grotesque (display) + Atkinson Hyperlegible (brødtekst, dyslektikarvennleg) -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -480,25 +485,6 @@
     width:40px;height:40px;cursor:pointer;font-size:17px;flex:none}
   .iconbtn:hover{background:#F2EFE7}
 
-  /* ---------- ETIKETTAR (QR til kassa) ---------- */
-  .etikett-ark{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
-  .etikett{
-    border:2px dashed #cbbfa3;border-radius:14px;padding:14px;
-    display:flex;gap:14px;align-items:center;background:#fff;
-    break-inside:avoid;
-  }
-  .etikett .qr{flex:none;width:104px;height:104px;display:flex;align-items:center;justify-content:center}
-  .etikett .qr img,.etikett .qr canvas{width:104px;height:104px}
-  .etikett .lab{min-width:0}
-  .etikett .lab .band{height:8px;width:46px;border-radius:4px;background:var(--cc,#999);margin-bottom:8px}
-  .etikett .lab strong{font-family:'Bricolage Grotesque',sans-serif;font-size:18px;display:block;line-height:1.1}
-  .etikett .lab small{color:var(--muted);font-size:12.5px}
-  .etikett .lab .scan{margin-top:8px;font-size:11.5px;color:var(--muted);display:flex;gap:5px;align-items:center}
-
-  /* éin QR i detalj/last ned */
-  .qrbox{display:flex;flex-direction:column;align-items:center;gap:10px}
-  .qrbox .qr{background:#fff;padding:14px;border-radius:14px;border:1px solid var(--line)}
-
   /* banner */
   .banner{
     background:#FFF3D6;color:#7a5b13;border-bottom:1px solid #f0dca0;
@@ -519,7 +505,6 @@
   /* ---------- responsiv ---------- */
   @media(max-width:560px){
     .row2{grid-template-columns:1fr}
-    .etikett-ark{grid-template-columns:1fr}
     .tabs{padding-top:52px}
     body.view-detail .detail{padding-top:52px}
   }
@@ -531,11 +516,6 @@
   @media print{
     body{background:#fff}
     .banner,.hero,.toolbar,.tabs,.mattoolbar,#toast,footer,.backlink,.detail-actions,.admin-btn{display:none!important}
-    body.printing-labels > *:not(#etikettOverlay){display:none!important}
-    body.printing-labels #etikettOverlay{position:static;display:block;background:#fff;padding:0;backdrop-filter:none}
-    body.printing-labels #etikettOverlay .sheet{box-shadow:none;margin:0;max-width:none;background:#fff}
-    body.printing-labels #etikettOverlay .sheet-head{display:none}
-    .etikett{border-color:#999}
     body.printing-detail .overlay{display:none!important}
   }
 
@@ -734,7 +714,6 @@
       <h3>Administrer Mykje Ting</h3>
       <div style="display:flex;gap:8px">
         <button class="btn primary" id="addThing">+ Legg til ting</button>
-        <button class="btn" id="printLabels">QR-etiketter</button>
         <button class="xbtn" data-close>×</button>
       </div>
     </div>
@@ -897,37 +876,6 @@
   </div>
 </div>
 
-<!-- ===== ETIKETT-OVERLAY (QR til kassa) ===== -->
-<div class="overlay" id="etikettOverlay" aria-hidden="true">
-  <div class="sheet">
-    <div class="sheet-head">
-      <h3>QR-etiketter til kassene</h3>
-      <div style="display:flex;gap:8px">
-        <button class="btn primary" id="doPrint">Skriv ut</button>
-        <button class="xbtn" data-close>×</button>
-      </div>
-    </div>
-    <div class="sheet-body">
-      <p style="color:var(--muted);font-size:14px;margin:0 0 16px">
-        Klipp ut og fest på kassen der tingen ligger. Når noen skanner QR-koden, åpner denne siden forslagene til aktiviteter for akkurat den tingen.
-      </p>
-      <div class="etikett-ark" id="etikettArk"></div>
-    </div>
-  </div>
-</div>
-
-<!-- ===== EINSKILD QR (last ned) ===== -->
-<div class="overlay" id="qrOverlay" aria-hidden="true">
-  <div class="sheet" style="max-width:380px">
-    <div class="sheet-head"><h3 id="qrTitle">QR</h3><button class="xbtn" data-close>×</button></div>
-    <div class="sheet-body">
-      <div class="qrbox"><div class="qr" id="qrSingle"></div>
-        <button class="btn primary" id="qrDownload">Last ned som bilde</button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- ===== KODEBOKS (PIN) ===== -->
 <div class="overlay" id="pinOverlay" aria-hidden="true">
   <div class="sheet pin-card">
@@ -952,7 +900,6 @@
 <div id="toast"></div>
 
 <!-- ============ BIBLIOTEK ============ -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
@@ -1503,13 +1450,11 @@ function openDetail(id,push=true){
       :`<div class="empty">Ingen aktiviteter lagt inn ennå.</div>`}
     <div class="detail-actions">
       <button class="btn" id="d_print">🖨 Skriv ut</button>
-      <button class="btn" id="d_qr">QR til kassen</button>
       <button class="btn" id="d_edit">✏️ Rediger</button>
     </div>`;
   $("#d_edit").onclick=()=>requestEdit(it.id);
   $("#back").onclick=()=>closeDetail();
   $("#d_print").onclick=()=>{document.body.classList.add("printing-detail");window.print();setTimeout(()=>document.body.classList.remove("printing-detail"),500)};
-  $("#d_qr").onclick=()=>showSingleQR(it);
   document.body.classList.add("view-detail");
   window.scrollTo({top:0,behavior:'instant'in window?'instant':'auto'});
   if(push){history.pushState({ting:id},"",thingURL(id))}
@@ -1522,42 +1467,6 @@ window.addEventListener("popstate",()=>{
   const id=new URLSearchParams(location.search).get("ting");
   if(id) openDetail(id,false); else closeDetail(false);
 });
-
-/* =================================================================
-   QR
-   ================================================================= */
-function makeQR(el,text,size){
-  el.innerHTML="";
-  new QRCode(el,{text,width:size,height:size,correctLevel:QRCode.CorrectLevel.M,
-    colorDark:"#1F1E1A",colorLight:"#ffffff"});
-}
-function showSingleQR(it){
-  $("#qrTitle").textContent=it.navn;
-  makeQR($("#qrSingle"),thingURL(it.id),220);
-  $("#qrDownload").onclick=()=>{
-    const cv=$("#qrSingle").querySelector("canvas");
-    const img=$("#qrSingle").querySelector("img");
-    const url=cv?cv.toDataURL("image/png"):(img?img.src:null);
-    if(!url)return;
-    const a=document.createElement("a");
-    a.href=url;a.download="qr-"+it.navn.replace(/\s+/g,"-").toLowerCase()+".png";a.click();
-  };
-  openOverlay("qrOverlay");
-}
-function buildLabels(){
-  const ark=$("#etikettArk");
-  ark.innerHTML=items.map(it=>{
-    const c=fargeFor((it.fag||[])[0]||"");
-    return `<div class="etikett" style="--cc:${c}">
-      <div class="qr" data-id="${it.id}"></div>
-      <div class="lab"><div class="band"></div>
-        <strong>${esc(it.navn)}</strong>
-        <small>${esc((it.fag||[]).join(" · "))}${it.plassering?" · "+esc(it.plassering):""}</small>
-        <div class="scan">📱 Skann for aktiviteter</div>
-      </div></div>`;
-  }).join('');
-  $$(".qr",ark).forEach(el=>makeQR(el,thingURL(el.dataset.id),104));
-}
 
 /* =================================================================
    ADMIN
@@ -1681,12 +1590,10 @@ function openAdmin(){
       <div class="ic">${esc(it.ikon||"📦")}</div>
       <div class="nm"><strong>${esc(it.navn)}</strong>
         <small>${esc((it.fag||[]).join(" · "))} · ${(it.aktivitetar||[]).length} aktiviteter</small></div>
-      <button class="iconbtn" data-qr="${it.id}" title="QR">🔳</button>
       <button class="iconbtn" data-edit="${it.id}" title="Rediger">✏️</button>
     </div>`;
   }).join('');
   $$("[data-edit]",root).forEach(b=>b.onclick=()=>openForm(b.dataset.edit));
-  $$("[data-qr]",root).forEach(b=>b.onclick=()=>{const it=items.find(x=>x.id===b.dataset.qr);if(it)showSingleQR(it)});
   openOverlay("adminOverlay");
 }
 
@@ -1921,8 +1828,6 @@ koblDropzone($("#matFileDrop"));
 // hindre at PDF sleppt utanfor sona opnar fila i nettlesaren
 window.addEventListener("dragover",e=>e.preventDefault());
 window.addEventListener("drop",e=>e.preventDefault());
-$("#printLabels").onclick=()=>{buildLabels();openOverlay("etikettOverlay")};
-$("#doPrint").onclick=()=>{document.body.classList.add("printing-labels");window.print();setTimeout(()=>document.body.classList.remove("printing-labels"),500)};
 
 /* kodeboks */
 $("#pinOk").onclick=submitPin;
