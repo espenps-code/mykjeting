@@ -1,0 +1,25 @@
+FOTOSTUDIO – verktøy i Mykje Ting
+================================
+Klipper ut elevene fra et bilde og setter dem inn foran en ny bakgrunn, med ramme og tekst.
+Alt skjer i nettleseren på enheten. Ingen bilder sendes noe sted.
+
+SLIK BRUKES DEN UTEN NETT
+1. Legg hele mappa på en nettadresse med https (f.eks. GitHub Pages).
+2. Åpne siden én gang med nett på hver iPad/PC, og vent til det står «Virker uten nett» øverst.
+3. Etter det åpner siden seg og virker uten internett. (Tips på iPad: Del → «Legg til på Hjem-skjerm».)
+
+Åpner du index.html rett fra en mappe på PC-en (dobbeltklikk), virker alt unntatt KI-utklippet.
+Da kan elevene bruke «Trykk på veggen» i stedet.
+
+LENKER MED VALG
+  index.html?tema=rom              viser romrammene først (rom eller reise)
+  index.html?sted=Mars             fyller ut «Hvor er dere?»
+  index.html?prosjekt=Romreisen    navnet som står på rammene
+  index.html?tilbake=../side.html  bytter hvor «Tilbake»-lenka går (vanligvis til Mykje Ting)
+  Flere valg settes sammen med &:  index.html?tema=rom&prosjekt=Romreisen
+
+FILENE
+  index.html   selve siden (rammer og bakgrunner ligger i koden her)
+  sw.js        lagrer filene på enheten så siden virker uten nett
+  lib/         KI-en som klipper ut personer (MediaPipe fra Google, Apache 2.0-lisens)
+  fonts/       skriftene (Bricolage Grotesque, Atkinson Hyperlegible, Space Mono – åpen SIL OFL-lisens)

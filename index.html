@@ -262,6 +262,19 @@
   .tab[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
   .mattoolbar{display:none}
   #materiell{display:none}
+  /* verktøy (eigen fane): små nettverktøy som ligg i mappa «verktoy» */
+  #verktoy{display:none}
+  body.vis-verktoy #verktoy{display:block;padding-top:24px}
+  body.vis-verktoy .toolbar,body.vis-verktoy #catalog,body.vis-verktoy .mattoolbar,body.vis-verktoy #materiell{display:none}
+  body.view-detail #verktoy,body.sok-alt #verktoy{display:none}
+  .vk-intro{color:var(--muted);font-size:14px;margin:0 0 16px}
+  .vk-card{display:block;text-decoration:none;color:inherit;
+    transition:transform .12s ease, box-shadow .18s ease, border-color .18s}
+  .vk-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg);border-color:#d8d0bd}
+  .vk-card:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+  .vk-card .mat-ic{background:color-mix(in srgb,var(--cc) 16%, white);border-color:color-mix(in srgb,var(--cc) 26%, white)}
+  .vk-opne{display:inline-flex;margin-top:14px;background:var(--ink);color:#fff;border-radius:999px;
+    font-size:14px;font-weight:700;padding:8px 15px}
   body.vis-materiell .toolbar,body.vis-materiell #catalog{display:none}
   /* samlesøk: skjul fag-piller, vis begge seksjonar i #catalog */
   body.sok-alt .toolbar,body.sok-alt .mattoolbar,body.sok-alt #materiell{display:none!important}
@@ -672,6 +685,7 @@
   <div class="tabs" id="tabs">
     <button class="tab" id="tabTing" type="button" aria-pressed="true">📦 Ting</button>
     <button class="tab" id="tabMat" type="button" aria-pressed="false">📄 Utskriftsmateriell</button>
+    <button class="tab" id="tabVerktoy" type="button" aria-pressed="false">🧰 Verktøy</button>
   </div>
 
   <!-- verktøylinje: fag-filter + admin -->
@@ -701,6 +715,28 @@
 
   <!-- liste over utskriftsmateriell -->
   <section id="materiell"></section>
+
+  <!-- verktøy: eitt kort per verktøy. Nytt verktøy? Kopier eit «vk-card» og byt lenke, ikon og tekst. -->
+  <section id="verktoy">
+    <p class="vk-intro">Små verktøy til bruk i timen. De åpnes i nettleseren og trenger ingen innlogging.</p>
+    <div class="mat-grid">
+      <a class="mat-card vk-card" href="verktoy/fotostudio/index.html" style="--cc:#9C5BA8">
+        <div class="mat-top">
+          <div class="mat-ic">📸</div>
+          <div class="mat-h">
+            <h3>Fotostudio</h3>
+            <p>Klipp ut elevene fra et bilde og sett dem foran en ny bakgrunn – på månen, på Mars eller foran et eget bilde. Med rammer og tekst.</p>
+          </div>
+        </div>
+        <div class="temarad">
+          <span class="tematag">Virker uten nett</span>
+          <span class="tematag">Bildene blir på enheten</span>
+          <span class="tematag">Rammer: verdensrommet, reise</span>
+        </div>
+        <span class="vk-opne">Åpne verktøyet →</span>
+      </a>
+    </div>
+  </section>
 
   <!-- detaljvising (opnast av QR / klikk) -->
   <section class="detail" id="detail"></section>
@@ -1016,7 +1052,7 @@ let formFiler=[];        // utskriftsmateriell (PDF-ar lasta opp til Storage)
 let filListeId="fileList";   // kva fil-liste opplasting skal teikne i (ting- vs materiell-skjema)
 let filHintId="fileHint";    // kva feilmelding-hint som høyrer til opne skjema
 let bildePrevId="f_bildePrev", bildeClearId="f_bildeClear", bildeStatusId="f_bildeStatus"; // bilde-felt for opne skjema
-let aktivVisning="ting";     // "ting" eller "materiell"
+let aktivVisning="ting";     // "ting", "materiell" eller "verktoy"
 let aktivGruppe=null;        // åpen samling i materiell-fanen (null = toppnivå)
 let aktivMatFag="*";         // fag-filter i materiell-fanen
 let aiAutoKjort=false;   // har auto-AI kjørt for dette skjemaet?
@@ -1393,8 +1429,10 @@ function byttVisning(v){
   søkTom=true; const _so=$("#sokOmfang"); if(_so) _so.style.display="none";
   document.body.classList.remove("sok-alt");
   document.body.classList.toggle("vis-materiell", v==='materiell');
+  document.body.classList.toggle("vis-verktoy", v==='verktoy');
   $("#tabTing").setAttribute("aria-pressed", v==='ting');
   $("#tabMat").setAttribute("aria-pressed", v==='materiell');
+  $("#tabVerktoy").setAttribute("aria-pressed", v==='verktoy');
   if(v==='materiell') renderMateriell(); else render();
   window.scrollTo({top:0,behavior:'instant'in window?'instant':'auto'});
 }
@@ -1793,6 +1831,7 @@ $("#f_fileInput").onchange=e=>{ const fs=[...e.target.files]; e.target.value="";
 /* faner + utskriftsmateriell */
 $("#tabTing").onclick=()=>byttVisning('ting');
 $("#tabMat").onclick=()=>byttVisning('materiell');
+$("#tabVerktoy").onclick=()=>byttVisning('verktoy');
 $("#matAdd").onclick=requestMatAdd;
 $("#matAddFile").onclick=()=>$("#m_fileInput").click();
 $("#m_fileInput").onchange=e=>{ const fs=[...e.target.files]; e.target.value=""; handterFilval(fs); };
@@ -2058,10 +2097,12 @@ function søk(){
   if(document.body.classList.contains("view-detail")) closeDetail();
   if(query){
     if(søkTom) søkOmfang="alle";   // nytt søk: vis treff i både ting og materiell
+    document.body.classList.remove("vis-verktoy");
     søkTom=false; visScope(true); tegnOmfang();
   }else{
     søkTom=true; visScope(false);
     document.body.classList.remove("sok-alt");
+    document.body.classList.toggle("vis-verktoy", aktivVisning==="verktoy");
     document.body.classList.toggle("vis-materiell", aktivVisning==="materiell");
     if(aktivVisning==="materiell") renderMateriell(); else render();
   }
